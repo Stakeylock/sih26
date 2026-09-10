@@ -24,11 +24,11 @@ npm run build
 1. Start on Navigate with **Expert** mode enabled.
 2. Select **Play 2-minute demo**.
 3. At GNSS degradation, point out that the system changes trust before the fix disappears.
-4. During the blackout, show the cyan AstraNav trajectory, the red classical drift, the growing simulated 95% bound, and the outage timer.
+4. During the blackout, show the lime map-assisted trajectory, blue raw estimate, rose classical drift, simulated uncertainty bound, and outage timer.
 5. At the pothole marker, show the shock event and softened constraints.
 6. Open a timeline event to pause and seek to the exact state transition.
 7. Use Evidence to show the calculated comparison and the validation roadmap.
-8. Use System to explain the path from sensors to navigation trust.
+8. Use Architecture to inspect the responsibilities of each pipeline stage.
 
 ## What is simulated versus implemented
 
@@ -55,4 +55,31 @@ The browser prototype does not claim a trained model, a validated 15-state ES-EK
 
 ## Integration path
 
-The UI consumes immutable `NavigationSnapshot` values from a deterministic source. A future native bridge or replay engine can replace the source while preserving the view contracts. The next research milestone is the handbook's recommended chain: IO-VNBD audit, leakage-safe trip split, ES-EKF + NHC, virtual speed, then 30/60 second blackout evaluation.
+The UI consumes typed `Snapshot` values through one shared replay controller. A future native bridge or replay adapter can replace the synthetic source, with coordinate-frame and timestamp validation. The next research milestone is the handbook's recommended chain: IO-VNBD audit, leakage-safe trip split, ES-EKF + NHC, virtual speed, then 30/60 second blackout evaluation.
+
+## Source architecture
+
+| Module | Responsibility |
+| --- | --- |
+| `src/engine/types.ts` | Configuration, snapshot, event, and run contracts |
+| `src/engine/scenarios.ts` | Offline district geometry and scenario schedules |
+| `src/engine/simulation.ts` | Seeded sensor generation, planar estimation, GNSS gating, fault recovery, road hypotheses, and metrics |
+| `src/engine/geometry.ts` | Projection, interpolation, distance, and angle helpers |
+| `src/hooks/useReplay.ts` | Shared clock, seeking, speed, configuration, and causal fault injection |
+| `src/components/` | Map, telemetry, playback, replay lab, evidence, architecture, and dialogs |
+| `src/App.tsx` | Workspace composition and navigation |
+
+The sensor generator reads the reference route; the estimator integrates measurements instead of reading reference positions directly. Raw and classical estimates are maintained separately. Road assistance changes a separate output, never the raw trajectory. Ambiguous road candidates suspend assistance. Rejected GNSS observations produce zero position correction; reacquisition requires three consecutive consistent fixes.
+
+Runs contain 1,201 snapshots at 10 Hz over 120 seconds. Playback speed changes wall-clock progression, not results. Injected faults take effect at the current replay timestamp without altering earlier snapshots. Changing scenario configuration starts a fresh run. Evidence and exports exclude future observations; drift is unavailable until positive outage distance is observed.
+
+## Verification
+
+```bash
+npm test
+npm run build
+```
+
+The 12-test suite covers deterministic runs, outage and reacquisition, rejected-fix correction, raw/map separation, ambiguity gating, causal injection and recovery, bad-speed handling, observed-only metrics, zero-distance drift, and finite outputs across scenarios and blackout durations. Browser checks cover desktop/mobile layout, map layers and zoom, event seeking, fault injection, and JSON export.
+
+No backend, API key, live map service, or trained model is required. The synthetic uncertainty bound is illustrative, not a calibrated statistical guarantee. Real-world performance remains unvalidated.
