@@ -7,6 +7,7 @@ import {
   Navigation2,
   Scan,
   Compass,
+  Satellite,
 } from "lucide-react";
 import type { Layers as LayerState, Run, Snapshot } from "../engine/types";
 import { mainRoad, northRoad, serviceRoad } from "../engine/scenarios";
@@ -162,9 +163,10 @@ const BaseMap = memo(function BaseMap() {
 });
 const initial: LayerState = {
   reference: true,
-  raw: true,
-  assisted: true,
-  baseline: true,
+  ins: true,
+  ekf: true,
+  map: true,
+  classical: true,
   gnss: true,
   bound: true,
 };
@@ -190,7 +192,7 @@ export function CityMap({
   );
   const w = 1200 / zoom,
     h = 800 / zoom,
-    c = follow ? snapshot.assisted : { x: 600, y: 400 };
+    c = follow ? snapshot.map : { x: 600, y: 400 };
   const view = `${c.x - w / 2} ${c.y - h / 2} ${w} ${h}`;
   return (
     <section className="map-surface" aria-label="Interactive navigation map">
@@ -212,29 +214,49 @@ export function CityMap({
             fill="none"
           />
         )}
-        {layers.baseline && (
+        {layers.classical && (
           <path
-            data-testid="baseline-path"
-            d={path(trails.map((s) => s.baseline))}
+            data-testid="classical-path"
+            d={path(trails.map((s) => s.classical))}
             stroke="#f49484"
             strokeWidth="2.2"
             fill="none"
             opacity=".9"
           />
         )}
-        {layers.raw && (
+        {layers.ins && (
           <path
-            data-testid="raw-path"
-            d={path(trails.map((s) => s.raw))}
-            stroke="#62cbd4"
-            strokeWidth="2"
+            data-testid="ins-path"
+            d={path(trails.map((s) => s.ins))}
+            stroke="#f2bb75"
+            strokeWidth="1.8"
             fill="none"
           />
         )}
-        {layers.assisted && (
+        {layers.ekf && (
           <>
             <path
-              d={path(trails.map((s) => s.assisted))}
+              d={path(trails.map((s) => s.ekf))}
+              stroke="#62cbd4"
+              strokeWidth="9"
+              fill="none"
+              opacity=".2"
+              filter="url(#glow)"
+            />
+            <path
+              data-testid="ekf-path"
+              d={path(trails.map((s) => s.ekf))}
+              stroke="#62cbd4"
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </>
+        )}
+        {layers.map && (
+          <>
+            <path
+              d={path(trails.map((s) => s.map))}
               stroke="#d9f5a0"
               strokeWidth="9"
               fill="none"
@@ -242,8 +264,8 @@ export function CityMap({
               filter="url(#glow)"
             />
             <path
-              data-testid="assisted-path"
-              d={path(trails.map((s) => s.assisted))}
+              data-testid="map-path"
+              d={path(trails.map((s) => s.map))}
               stroke="#d9f5a0"
               strokeWidth="3.5"
               fill="none"
@@ -265,8 +287,8 @@ export function CityMap({
             ))}
         {layers.bound && (
           <circle
-            cx={snapshot.raw.x}
-            cy={snapshot.raw.y}
+            cx={snapshot.ekf.x}
+            cy={snapshot.ekf.y}
             r={snapshot.bound}
             fill="#a7dce5"
             fillOpacity=".06"
@@ -275,9 +297,7 @@ export function CityMap({
             strokeWidth="1"
           />
         )}
-        <g
-          transform={`translate(${snapshot.assisted.x} ${snapshot.assisted.y})`}
-        >
+        <g transform={`translate(${snapshot.map.x} ${snapshot.map.y})`}>
           <circle r="25" fill="#d9f5a0" opacity=".06" />
           <circle r="16" fill="#172a25" stroke="#d9f5a0" strokeOpacity=".25" />
           <path
@@ -303,14 +323,26 @@ export function CityMap({
           <i />
           ASTER DISTRICT <b>SYNTHETIC</b>
         </span>
-        <button
-          className={`map-button ${open ? "selected" : ""}`}
-          aria-label="Toggle map layers"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          <Layers size={17} />
-        </button>
+        <div className="map-top-actions">
+          <span className={`map-signal ${snapshot.state.toLowerCase()}`}>
+            <Satellite size={11} />
+            {snapshot.state === "DENIED"
+              ? "GNSS DENIED"
+              : snapshot.gnss
+                ? snapshot.gnssAccepted
+                  ? "GNSS FIX"
+                  : "GNSS REJECTED"
+                : "NO FIX"}
+          </span>
+          <button
+            className={`map-button ${open ? "selected" : ""}`}
+            aria-label="Toggle map layers"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            <Layers size={17} />
+          </button>
+        </div>
       </div>
       {open && (
         <div className="layers-menu">
@@ -328,9 +360,10 @@ export function CityMap({
                 {
                   {
                     reference: "Reference route",
-                    raw: "Raw estimate",
-                    assisted: "Map-assisted",
-                    baseline: "Classical baseline",
+                    ins: "INS / dead reckoning",
+                    ekf: "ES-EKF + ML aiding",
+                    map: "Map-assisted output",
+                    classical: "Classical EKF comparator",
                     gnss: "GNSS observations",
                     bound: "Simulated 95% bound",
                   }[key]
@@ -347,7 +380,7 @@ export function CityMap({
         <div>
           <small>
             {snapshot.state === "DENIED"
-              ? "CONTINUING THROUGH TUNNEL"
+              ? "GNSS OUTAGE · INS ACTIVE"
               : "CURRENT ROUTE"}
           </small>
           <strong>
@@ -355,7 +388,7 @@ export function CityMap({
           </strong>
           <p>
             {snapshot.state === "DENIED"
-              ? "Inertial navigation active"
+              ? "ES-EKF propagating · fixes unavailable"
               : "West Quarter → North Gate"}
           </p>
         </div>
@@ -401,12 +434,16 @@ export function CityMap({
       <div className="map-bottom">
         <div className="map-legend">
           <span>
-            <i className="lime" />
-            Map-assisted
+            <i className="amber" />
+            INS / DR
           </span>
           <span>
             <i className="cyan" />
-            Raw estimate
+            ES-EKF + ML
+          </span>
+          <span>
+            <i className="lime" />
+            Map-assisted
           </span>
           <span>
             <i className="coral" />

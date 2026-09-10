@@ -268,12 +268,12 @@ export default function App() {
             </select>
           </label>
           <Toggle
-            label="Virtual odometer"
+            label="ML virtual odometer"
             checked={replay.config.learned}
             onChange={() => configure({ learned: !replay.config.learned })}
           />
           <Toggle
-            label="Map assistance"
+            label="Map matching"
             checked={replay.config.map}
             onChange={() => configure({ map: !replay.config.map })}
           />
@@ -297,9 +297,10 @@ export default function App() {
           <div className="help-copy">
             <h3>Read the map</h3>
             <p>
-              Lime is the map-assisted estimate. Cyan is the raw motion
-              estimate. Coral is the classical baseline. Dashed white is the
-              synthetic reference route.
+              Amber is IMU-only INS. Cyan is the primary reduced-order ES-EKF
+              with ML virtual-odometer aiding. Lime is the confidence-gated
+              map-assisted output. Coral is the classical EKF comparator. GNSS
+              dots show accepted and rejected fixes; no dots means an outage.
             </p>
             <h3>Inspect trust</h3>
             <p>
@@ -315,8 +316,9 @@ export default function App() {
             </p>
             <h3>Prototype boundary</h3>
             <p>
-              The planar simulation is functional. Training, full ES-EKF,
-              Android sensors, and dataset validation remain future work.
+              The planar simulation and pipeline are functional. A production
+              15-state ES-EKF, trained ML model, Android sensors, and dataset
+              validation remain future work.
             </p>
           </div>
         </Modal>

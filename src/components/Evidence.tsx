@@ -1,18 +1,26 @@
 import { Download, ArrowUpRight } from "lucide-react";
 import type { Replay } from "../hooks/useReplay";
-import type { Run } from "../engine/types";
+import type { EstimateKey, Run } from "../engine/types";
 import { dist, timeLabel } from "../engine/geometry";
 import { metrics } from "../engine/simulation";
+
+const labels: Record<EstimateKey, string> = {
+  ins: "INS / dead reckoning",
+  ekf: "ES-EKF + ML aiding",
+  map: "Map-assisted output",
+  classical: "Classical EKF comparator",
+};
+
 export function exportRun(run: Run, t: number, format: "json" | "csv") {
-  const snapshots = run.snapshots.filter((s) => s.t <= t),
-    events = run.events.filter((e) => e.at <= t);
+  const snapshots = run.snapshots.filter((snapshot) => snapshot.t <= t),
+    events = run.events.filter((event) => event.at <= t);
   const content =
     format === "json"
       ? JSON.stringify(
           {
             provenance:
               "synthetic planar simulation; not a validated navigation engine",
-            version: 2,
+            version: 3,
             config: run.config,
             until: t,
             metrics: metrics(run, t),
@@ -23,22 +31,31 @@ export function exportRun(run: Run, t: number, format: "json" | "csv") {
           2,
         )
       : [
-          "provenance,t,reference_x_m,reference_y_m,raw_x_m,raw_y_m,assisted_x_m,assisted_y_m,baseline_x_m,baseline_y_m,state,bound_m,rejected",
-          ...snapshots.map((s) =>
+          "provenance,t,reference_x_m,reference_y_m,ins_x_m,ins_y_m,ekf_x_m,ekf_y_m,map_x_m,map_y_m,classical_x_m,classical_y_m,ml_speed_mps,ml_confidence,ml_quality,gnss_state,gnss_x_m,gnss_y_m,gnss_accepted,gnss_residual_m,bound_m,rejected",
+          ...snapshots.map((snapshot) =>
             [
               "synthetic",
-              s.t,
-              s.reference.x,
-              s.reference.y,
-              s.raw.x,
-              s.raw.y,
-              s.assisted.x,
-              s.assisted.y,
-              s.baseline.x,
-              s.baseline.y,
-              s.state,
-              s.bound,
-              s.rejected,
+              snapshot.t,
+              snapshot.reference.x,
+              snapshot.reference.y,
+              snapshot.ins.x,
+              snapshot.ins.y,
+              snapshot.ekf.x,
+              snapshot.ekf.y,
+              snapshot.map.x,
+              snapshot.map.y,
+              snapshot.classical.x,
+              snapshot.classical.y,
+              snapshot.mlSpeed,
+              snapshot.mlConfidence,
+              snapshot.mlQuality,
+              snapshot.state,
+              snapshot.gnss?.x ?? "",
+              snapshot.gnss?.y ?? "",
+              snapshot.gnss ? snapshot.gnssAccepted : "",
+              snapshot.gnssResidual ?? "",
+              snapshot.bound,
+              snapshot.rejected,
             ].join(","),
           ),
         ].join("\n");
@@ -47,28 +64,36 @@ export function exportRun(run: Run, t: number, format: "json" | "csv") {
       type: format === "json" ? "application/json" : "text/csv",
     }),
   );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `astranav-${run.config.scenario}-synthetic.${format}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `astranav-${run.config.scenario}-synthetic.${format}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
 export function Evidence({ replay }: { replay: Replay }) {
   const values = metrics(replay.run, replay.t),
-    samples = replay.run.snapshots.filter((s) => s.t <= replay.t),
-    raw = values.find((m) => m.name === "raw"),
+    samples = replay.run.snapshots.filter((snapshot) => snapshot.t <= replay.t),
+    primary = values.find((metric) => metric.name === "ekf"),
+    ins = values.find((metric) => metric.name === "ins"),
     max = Math.max(
       10,
-      ...samples.map((s) => Math.max(dist(s.baseline, s.reference), s.bound)),
+      ...samples.flatMap((snapshot) => [
+        dist(snapshot.ins, snapshot.reference),
+        dist(snapshot.ekf, snapshot.reference),
+        dist(snapshot.map, snapshot.reference),
+        dist(snapshot.classical, snapshot.reference),
+        snapshot.bound,
+      ]),
     );
-  const chart = (key: "raw" | "assisted" | "baseline" | "bound") =>
+  const chart = (key: "ins" | "ekf" | "map" | "classical" | "bound") =>
     samples
-      .filter((_, i) => i % 5 === 0)
+      .filter((_, index) => index % 5 === 0)
       .map(
-        (s, i) =>
-          `${i ? "L" : "M"}${48 + (s.t / 120) * 900},${230 - ((key === "bound" ? s.bound : dist(s[key], s.reference)) / max) * 200}`,
+        (snapshot, index) =>
+          `${index ? "L" : "M"}${48 + (snapshot.t / 120) * 900},${230 - ((key === "bound" ? snapshot.bound : dist(snapshot[key], snapshot.reference)) / max) * 200}`,
       )
       .join(" ");
   return (
@@ -76,7 +101,7 @@ export function Evidence({ replay }: { replay: Replay }) {
       <div className="section-header">
         <div>
           <span className="section-label">MEASURED WITHIN THIS SIMULATION</span>
-          <h2>Every trajectory tells a story.</h2>
+          <h2>Trace every branch.</h2>
           <p>
             Observed through {timeLabel(replay.t)}. Future samples are excluded.
           </p>
@@ -99,14 +124,14 @@ export function Evidence({ replay }: { replay: Replay }) {
       </div>
       <div className="metric-grid">
         <Metric
-          label="Raw blackout error"
-          value={raw ? `${raw.error.toFixed(1)} m` : "—"}
-          detail="Before map assistance"
+          label="ES-EKF final error"
+          value={primary ? `${primary.error.toFixed(1)} m` : "—"}
+          detail="Primary fused estimate"
         />
         <Metric
-          label="Raw drift"
-          value={raw?.drift != null ? `${raw.drift.toFixed(2)}%` : "—"}
-          detail="Error / reference distance"
+          label="INS final error"
+          value={ins ? `${ins.error.toFixed(1)} m` : "—"}
+          detail="IMU-only dead reckoning"
         />
         <Metric
           label="Blackout distance"
@@ -114,9 +139,9 @@ export function Evidence({ replay }: { replay: Replay }) {
           detail="Accumulated reference distance"
         />
         <Metric
-          label="Observed bound coverage"
-          value={raw ? `${raw.coverage.toFixed(1)}%` : "—"}
-          detail="Simulated bound, not calibrated"
+          label="ES-EKF bound coverage"
+          value={primary ? `${primary.coverage.toFixed(1)}%` : "—"}
+          detail="Illustrative, not calibrated"
         />
       </div>
       <section className="chart-panel">
@@ -126,8 +151,12 @@ export function Evidence({ replay }: { replay: Replay }) {
           </h3>
           <div className="map-legend">
             <span>
+              <i className="amber" />
+              INS
+            </span>
+            <span>
               <i className="cyan" />
-              Raw
+              ES-EKF + ML
             </span>
             <span>
               <i className="lime" />
@@ -143,7 +172,7 @@ export function Evidence({ replay }: { replay: Replay }) {
           className="error-chart"
           viewBox="0 0 1000 265"
           role="img"
-          aria-label="Position errors and simulated confidence bound over observed replay"
+          aria-label="INS, ES-EKF, map-assisted, classical, and simulated confidence errors over observed replay"
         >
           <rect
             x={48 + (replay.run.scenario.start / 120) * 900}
@@ -187,18 +216,24 @@ export function Evidence({ replay }: { replay: Replay }) {
             strokeDasharray="5 5"
             strokeWidth="1.5"
           />
+          <path d={chart("ins")} fill="none" stroke="#f2bb75" strokeWidth="2" />
           <path
-            d={chart("baseline")}
+            d={chart("classical")}
             fill="none"
             stroke="#f49484"
             strokeWidth="2"
           />
-          <path d={chart("raw")} fill="none" stroke="#62cbd4" strokeWidth="2" />
           <path
-            d={chart("assisted")}
+            d={chart("ekf")}
+            fill="none"
+            stroke="#62cbd4"
+            strokeWidth="2.2"
+          />
+          <path
+            d={chart("map")}
             fill="none"
             stroke="#d9f5a0"
-            strokeWidth="2"
+            strokeWidth="2.5"
           />
         </svg>
         <small>
@@ -208,33 +243,27 @@ export function Evidence({ replay }: { replay: Replay }) {
       </section>
       <div className="evidence-detail">
         <section>
-          <h3>Blackout comparison</h3>
+          <h3>Estimator comparison</h3>
           {values.length ? (
             <table>
               <thead>
                 <tr>
-                  <th>Estimator</th>
+                  <th>Branch</th>
                   <th>Final error</th>
                   <th>RMSE</th>
                   <th>Drift</th>
                 </tr>
               </thead>
               <tbody>
-                {values.map((m) => (
-                  <tr key={m.name}>
+                {values.map((metric) => (
+                  <tr key={metric.name}>
+                    <td>{labels[metric.name]}</td>
+                    <td>{metric.error.toFixed(2)} m</td>
+                    <td>{metric.rmse.toFixed(2)} m</td>
                     <td>
-                      {
-                        {
-                          raw: "Raw inertial + speed",
-                          assisted: "Map-assisted display",
-                          baseline: "Classical baseline",
-                        }[m.name]
-                      }
-                    </td>
-                    <td>{m.error.toFixed(2)} m</td>
-                    <td>{m.rmse.toFixed(2)} m</td>
-                    <td>
-                      {m.drift === null ? "N/A" : `${m.drift.toFixed(2)}%`}
+                      {metric.drift === null
+                        ? "N/A"
+                        : `${metric.drift.toFixed(2)}%`}
                     </td>
                   </tr>
                 ))}
@@ -260,6 +289,7 @@ export function Evidence({ replay }: { replay: Replay }) {
     </div>
   );
 }
+
 function Metric({
   label,
   value,

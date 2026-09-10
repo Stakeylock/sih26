@@ -10,7 +10,7 @@ export function Playback({ replay }: { replay: Replay }) {
           className="play"
           aria-label={playing ? "Pause replay" : "Play replay"}
           onClick={() => {
-            if (t >= 120) replay.seek(0);
+            if (t >= run.duration) replay.seek(0);
             replay.setPlaying(!playing);
           }}
         >
@@ -29,22 +29,26 @@ export function Playback({ replay }: { replay: Replay }) {
         </button>
         <span className="replay-time">
           {timeLabel(t)}
-          <small> / 02:00</small>
+          <small> / {timeLabel(run.duration)}</small>
         </span>
       </div>
       <div className="timeline">
         <div className="timeline-labels">
-          <span>GNSS TRUST</span>
-          <span>Drag to inspect</span>
+          <span>GNSS SIGNAL</span>
+          <span>Shaded = outage · drag to inspect</span>
         </div>
         <div className="track">
           <span
             className="outage-band"
+            role="img"
+            aria-label={`GNSS blackout from ${timeLabel(run.scenario.start)} to ${timeLabel(run.scenario.start + run.config.blackout)}`}
             style={{
               left: `${run.scenario.start / 1.2}%`,
               width: `${run.config.blackout / 1.2}%`,
             }}
-          />
+          >
+            <b>GNSS OUTAGE</b>
+          </span>
           <span className="played" style={{ width: `${t / 1.2}%` }} />
           {run.events
             .filter((e) => e.id.startsWith("state-"))
@@ -62,7 +66,7 @@ export function Playback({ replay }: { replay: Replay }) {
             aria-label="Replay position"
             type="range"
             min="0"
-            max="120"
+            max={run.duration}
             step="0.1"
             value={t}
             onChange={(e) => replay.seek(+e.target.value)}
@@ -73,7 +77,7 @@ export function Playback({ replay }: { replay: Replay }) {
           <span>00:30</span>
           <span>01:00</span>
           <span>01:30</span>
-          <span>02:00</span>
+          <span>{timeLabel(run.duration)}</span>
         </div>
       </div>
       <div className="playback-speed">
@@ -92,7 +96,9 @@ export function Playback({ replay }: { replay: Replay }) {
           className="icon"
           aria-label="Skip to next event"
           onClick={() =>
-            replay.seek(run.events.find((e) => e.at > t + 0.1)?.at ?? 120)
+            replay.seek(
+              run.events.find((e) => e.at > t + 0.1)?.at ?? run.duration,
+            )
           }
         >
           <SkipForward size={17} />

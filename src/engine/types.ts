@@ -1,6 +1,8 @@
 export type Point = { x: number; y: number };
 export type GnssState = "TRUSTED" | "DEGRADED" | "DENIED" | "REACQUIRING";
 export type FaultKind = "gnss" | "shock" | "mount" | "speed";
+export type EstimateKey = "ins" | "ekf" | "map" | "classical";
+export type MlQuality = "READY" | "SUSPENDED" | "OOD" | "DISABLED";
 export type Fault = { id: string; kind: FaultKind; at: number };
 export type Config = {
   scenario: string;
@@ -31,22 +33,31 @@ export type Candidate = { name: string; probability: number };
 export type Snapshot = {
   t: number;
   reference: Point;
-  raw: Point;
-  assisted: Point;
-  baseline: Point;
+  /** IMU-only inertial mechanisation. Never corrected by GNSS or map feedback. */
+  ins: Point;
+  /** Primary reduced-order ES-EKF estimate, optionally aided by ML virtual speed. */
+  ekf: Point;
+  /** Independent road-constrained output derived from the ES-EKF estimate. */
+  map: Point;
+  /** Ablation comparator: conventional GNSS + inertial fusion without ML aiding. */
+  classical: Point;
   speed: number;
-  virtualSpeed: number;
+  mlSpeed: number;
+  mlConfidence: number;
+  mlQuality: MlQuality;
   heading: number;
   sigma: number;
   bound: number;
   gnss: Point | null;
+  gnssAccepted: boolean;
+  gnssResidual: number | null;
   rejected: boolean;
   state: GnssState;
   outage: number;
   distance: number;
   alignment: number;
-  ood: number;
-  learnedUsed: boolean;
+  mlOod: number;
+  mlUsed: boolean;
   mapUsed: boolean;
   shock: boolean;
   candidates: Candidate[];
@@ -61,7 +72,7 @@ export type Run = {
   duration: number;
 };
 export type Metric = {
-  name: string;
+  name: EstimateKey;
   error: number;
   rmse: number;
   drift: number | null;
@@ -69,9 +80,10 @@ export type Metric = {
 };
 export type Layers = {
   reference: boolean;
-  raw: boolean;
-  assisted: boolean;
-  baseline: boolean;
+  ins: boolean;
+  ekf: boolean;
+  map: boolean;
+  classical: boolean;
   gnss: boolean;
   bound: boolean;
 };

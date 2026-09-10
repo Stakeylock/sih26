@@ -21,7 +21,9 @@ describe("causal replay engine", () => {
     expect(
       run.snapshots
         .filter((s) => s.t >= 25 && s.t < 85)
-        .every((s) => s.gnss === null && s.state === "DENIED"),
+        .every(
+          (s) => s.gnss === null && !s.gnssAccepted && s.state === "DENIED",
+        ),
     ).toBe(true);
     expect(run.snapshots[850].state).toBe("REACQUIRING");
     expect(run.snapshots[880].state).toBe("REACQUIRING");
@@ -36,19 +38,22 @@ describe("causal replay engine", () => {
     const rejected = run.snapshots.filter((s) => s.rejected);
     expect(rejected.length).toBeGreaterThan(0);
     expect(rejected.every((s) => s.correction === 0)).toBe(true);
+    expect(rejected.every((s) => !s.gnssAccepted)).toBe(true);
   });
-  it("preserves the raw trajectory when toggling map assistance", () => {
+  it("keeps INS and ES-EKF independent from map matching", () => {
     const aided = simulate(defaultConfig),
       off = simulate({ ...defaultConfig, map: false });
-    expect(aided.snapshots.map((s) => s.raw)).toEqual(
-      off.snapshots.map((s) => s.raw),
+    expect(aided.snapshots.map((s) => s.ekf)).toEqual(
+      off.snapshots.map((s) => s.ekf),
     );
-    expect(aided.snapshots.some((s) => dist(s.raw, s.assisted) > 0.01)).toBe(
-      true,
-    );
-    expect(off.snapshots.every((s) => dist(s.raw, s.assisted) === 0)).toBe(
-      true,
-    );
+    expect(aided.snapshots.some((s) => dist(s.ekf, s.map) > 0.01)).toBe(true);
+    expect(off.snapshots.every((s) => dist(s.ekf, s.map) === 0)).toBe(true);
+  });
+  it("exposes a pure INS branch and a guarded ML measurement", () => {
+    const run = simulate(defaultConfig);
+    expect(run.snapshots.some((s) => dist(s.ins, s.ekf) > 0.01)).toBe(true);
+    expect(run.snapshots.some((s) => s.mlQuality === "READY")).toBe(true);
+    expect(run.snapshots.some((s) => s.mlUsed)).toBe(true);
   });
   it("withholds ambiguous map feedback", () => {
     const run = simulate(defaultConfig);
@@ -73,7 +78,7 @@ describe("causal replay engine", () => {
       plain.snapshots.slice(0, 500),
     );
     expect(fault.snapshots[510].alignment).toBeLessThan(1);
-    expect(fault.snapshots[510].learnedUsed).toBe(false);
+    expect(fault.snapshots[510].mlUsed).toBe(false);
     expect(
       fault.events.some((e) => e.id === "mount-test-clear" && e.at === 58),
     ).toBe(true);
@@ -85,18 +90,18 @@ describe("causal replay engine", () => {
         ...defaultConfig,
         faults: [{ id: "speed-test", kind: "speed", at: 50 }],
       });
-    expect(b.snapshots[510].learnedUsed).toBe(false);
-    expect(b.snapshots[510].ood).toBeGreaterThan(0.8);
-    expect(dist(a.snapshots[590].raw, b.snapshots[590].raw)).toBeGreaterThan(
+    expect(b.snapshots[510].mlUsed).toBe(false);
+    expect(b.snapshots[510].mlOod).toBeGreaterThan(0.8);
+    expect(dist(a.snapshots[590].ekf, b.snapshots[590].ekf)).toBeGreaterThan(
       0.01,
     );
   });
   it("computes metrics only from observed blackout samples", () => {
     const run = simulate(defaultConfig);
     expect(metrics(run, 12)).toEqual([]);
-    const m = metrics(run, 50)[0],
+    const m = metrics(run, 50).find((metric) => metric.name === "ins")!,
       s = run.snapshots[500];
-    expect(m.error).toBeCloseTo(dist(s.raw, s.reference));
+    expect(m.error).toBeCloseTo(dist(s.ins, s.reference));
     expect(m.drift).toBeCloseTo((100 * m.error) / s.distance);
   });
   it.each([10, 30, 60])(
@@ -110,7 +115,8 @@ describe("causal replay engine", () => {
       expect(
         run.snapshots.every(
           (s) =>
-            Number.isFinite(s.raw.x) &&
+            Number.isFinite(s.ins.x) &&
+            Number.isFinite(s.ekf.x) &&
             s.bound > 0 &&
             s.heading >= 0 &&
             s.heading < 360,

@@ -7,6 +7,8 @@
   --lime: #d9f5a0;
   --cyan: #62cbd4;
   --coral: #f49484;
+  --amber: #f2bb75;
+  --violet: #b9a6ed;
   --muted: #84959a;
   --line: #28353a;
   --panel: #151f24;
@@ -480,6 +482,7 @@ p {
 .map-legend {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
   font-size: 9px;
   color: #9aadb0;
 }
@@ -500,6 +503,9 @@ p {
 }
 .coral {
   background: var(--coral);
+}
+.amber {
+  background: var(--amber);
 }
 .status {
   font-family: var(--mono);
@@ -564,6 +570,35 @@ p {
 }
 .layers-menu input {
   accent-color: var(--lime);
+}
+.map-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.map-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #40534a;
+  border-radius: 5px;
+  background: #172923d9;
+  color: #b7d39e;
+  padding: 6px 8px;
+  font: 8px var(--mono);
+  letter-spacing: 0.35px;
+  white-space: nowrap;
+}
+.map-signal.denied,
+.map-signal.degraded {
+  border-color: #644b3e;
+  background: #34271fd9;
+  color: #e4b58d;
+}
+.map-signal.reacquiring {
+  border-color: #574d70;
+  background: #29243bd9;
+  color: #c1b5e6;
 }
 .telemetry {
   border-left: 1px solid var(--line);
@@ -720,6 +755,199 @@ p {
   font-size: 10px;
   color: #869eaa;
 }
+.gnss-card {
+  margin-top: 14px;
+  border: 1px solid #304b50;
+  border-radius: 7px;
+  padding: 11px;
+  background: #15272bd9;
+}
+.gnss-card.denied,
+.gnss-card.degraded {
+  border-color: #5d4b3b;
+  background: #2c2822aa;
+}
+.gnss-card.reacquiring {
+  border-color: #52486b;
+  background: #29243aaa;
+}
+.gnss-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: #91aab0;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.gnss-card-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gnss-card-heading b {
+  color: #bfd6aa;
+  font: 9px var(--mono);
+  letter-spacing: 0;
+  text-align: right;
+}
+.gnss-card.denied .gnss-card-heading b,
+.gnss-card.degraded .gnss-card-heading b {
+  color: #e1b48d;
+}
+.gnss-card p {
+  color: #78949b;
+  font-size: 9px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+.ml-card {
+  margin-top: 14px;
+  border: 1px solid #4a4563;
+  border-radius: 7px;
+  padding: 11px;
+  background: linear-gradient(135deg, #29263c, #18242b);
+}
+.ml-card.suspended,
+.ml-card.ood {
+  border-color: #635141;
+  background: linear-gradient(135deg, #352c28, #1d272b);
+}
+.ml-card.disabled {
+  border-color: #334148;
+  background: #172328;
+}
+.ml-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 7px;
+  color: #a9a1d0;
+  font-size: 8px;
+  letter-spacing: 0.9px;
+}
+.ml-card-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ml-card-heading b {
+  color: #c5b8eb;
+  font: 8px var(--mono);
+  letter-spacing: 0;
+  text-align: right;
+}
+.ml-card.suspended .ml-card-heading b,
+.ml-card.ood .ml-card-heading b {
+  color: #e1b38d;
+}
+.ml-sparkline {
+  display: block;
+  width: 100%;
+  height: 47px;
+  margin: 8px 0 4px;
+  overflow: visible;
+}
+.ml-sparkline line {
+  stroke: #47505f;
+  stroke-dasharray: 3 4;
+}
+.ml-sparkline path {
+  fill: none;
+  stroke: var(--violet);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ml-card-meta {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr;
+  gap: 7px;
+  border-top: 1px solid #3b3b51;
+  padding-top: 8px;
+  color: #a4a1b6;
+  font: 8px var(--mono);
+}
+.ml-card-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ml-card-meta small {
+  display: block;
+  color: #726d8a;
+  font-size: 7px;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+.estimator-stack {
+  display: grid;
+  gap: 7px;
+}
+.pipeline-row {
+  display: grid;
+  grid-template-columns: 19px 19px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #2a3e44;
+  border-radius: 6px;
+  padding: 8px;
+  background: #17262b;
+}
+.pipeline-row-number {
+  font: 8px var(--mono);
+  color: #607b83;
+}
+.pipeline-row-icon {
+  display: grid;
+  place-items: center;
+  color: #8ea4a6;
+}
+.pipeline-row-icon i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pipeline-row-copy {
+  min-width: 0;
+}
+.pipeline-row-copy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #b5c8c5;
+  font-size: 10px;
+  font-weight: 500;
+}
+.pipeline-row-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #708a92;
+  font-size: 8px;
+  margin-top: 3px;
+}
+.pipeline-row > b {
+  color: #a7bf93;
+  font: 8px var(--mono);
+  white-space: nowrap;
+}
+.pipeline-row.ins .pipeline-row-icon {
+  color: var(--amber);
+}
+.pipeline-row.ml .pipeline-row-icon {
+  color: var(--violet);
+}
+.pipeline-row.ekf .pipeline-row-icon {
+  color: var(--cyan);
+}
+.pipeline-row.map .pipeline-row-icon {
+  color: var(--lime);
+}
 .trust-meter {
   margin: 11px 0;
 }
@@ -848,6 +1076,16 @@ p {
   top: 0;
   bottom: 0;
   background: #7c624e99;
+}
+.outage-band b {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  transform: translateX(-50%);
+  color: #c49b79;
+  font: 7px var(--mono);
+  letter-spacing: 0.8px;
+  white-space: nowrap;
 }
 .played {
   position: absolute;
@@ -1221,7 +1459,7 @@ td:not(:first-child) {
 }
 .pipeline {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   margin: 25px 0;
 }
@@ -1240,6 +1478,30 @@ td:not(:first-child) {
 .pipeline button.chosen {
   border-color: #9aaa74;
   background: #25322b;
+}
+.pipeline button.gnss svg,
+.stage-illustration.gnss {
+  color: #e0b68e;
+}
+.pipeline button.ml svg,
+.stage-illustration.ml {
+  color: var(--violet);
+}
+.pipeline button.ekf svg,
+.stage-illustration.ekf {
+  color: var(--cyan);
+}
+.pipeline button.map svg,
+.stage-illustration.map {
+  color: var(--lime);
+}
+.pipeline button.ins svg,
+.stage-illustration.ins {
+  color: var(--amber);
+}
+.pipeline button.evidence svg,
+.stage-illustration.evidence {
+  color: #b6c7bd;
 }
 .stage-number {
   font: 9px var(--mono);

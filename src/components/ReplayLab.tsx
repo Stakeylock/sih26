@@ -67,14 +67,14 @@ export function ReplayLab({ replay }: { replay: Replay }) {
         </div>
         <div className="config-aids">
           <Toggle
-            label="Virtual odometer"
+            label="ML virtual odometer"
             checked={replay.config.learned}
             onChange={() =>
               replay.configure({ learned: !replay.config.learned })
             }
           />
           <Toggle
-            label="Map assistance"
+            label="Map matching"
             checked={replay.config.map}
             onChange={() => replay.configure({ map: !replay.config.map })}
           />
