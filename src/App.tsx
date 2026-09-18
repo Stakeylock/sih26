@@ -1,16 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
   Check,
   ChevronDown,
   Compass,
+  Database,
   FlaskConical,
+  FolderOpen,
+  Gauge,
+  FlaskRound,
   GitBranch,
   HelpCircle,
   Navigation2,
   Play,
+  Search as SearchIcon,
   ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useReplay } from "./hooks/useReplay";
 import { CityMap } from "./components/CityMap";
@@ -19,9 +25,34 @@ import { Playback } from "./components/Playback";
 import { ReplayLab } from "./components/ReplayLab";
 import { Evidence } from "./components/Evidence";
 import { SystemView } from "./components/SystemView";
+import { CalibrationView } from "./components/CalibrationView";
+import { ExperimentsView } from "./components/ExperimentsView";
+import { ChartsPanel } from "./components/ChartsPanel";
+import { DataView } from "./components/DataView";
+import { ModelInspector } from "./components/ModelInspector";
+import { ExplainabilityPanel } from "./components/ExplainabilityPanel";
+import { RunLibrary } from "./components/RunLibrary";
+import { DiagnosticsView } from "./components/DiagnosticsView";
+import { CommandPalette } from "./components/CommandPalette";
+import { ConstraintsPanel } from "./components/ConstraintsPanel";
+import { TrustPanel } from "./components/TrustPanel";
+import { FallbackCard } from "./components/FallbackCard";
+import { JudgeOverlay } from "./components/judge/JudgeOverlay";
 import { Modal, Toggle } from "./components/ui";
 import { scenarios } from "./engine/scenarios";
-type View = "navigate" | "lab" | "evidence" | "system";
+import { judgeCalloutAt, judgeStages } from "./engine/judge";
+type View =
+  | "navigate"
+  | "lab"
+  | "evidence"
+  | "system"
+  | "calibration"
+  | "experiments"
+  | "data"
+  | "library"
+  | "diagnostics";
+// shared with CommandPalette so items type-check against the real View union
+export type AppView = View;
 function getBasic() {
   try {
     return localStorage.getItem("astranav-basic-v2") === "true";
@@ -34,7 +65,11 @@ export default function App() {
     [view, setView] = useState<View>("navigate"),
     [basic, setBasic] = useState(getBasic),
     [modal, setModal] = useState<"scenario" | "help" | null>(null),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [judge, setJudge] = useState(false),
+    [palette, setPalette] = useState(false);
+  const stages = useMemo(() => judgeStages(replay.run), [replay.run]);
+  const callout = judge ? judgeCalloutAt(stages, replay.t) : null;
   useEffect(() => {
     try {
       localStorage.setItem("astranav-basic-v2", String(basic));
@@ -49,6 +84,7 @@ export default function App() {
   }, [notice]);
   const configure = (patch: Parameters<typeof replay.configure>[0]) => {
     replay.configure(patch);
+    setJudge(false);
     setNotice("Replay reset with your new configuration.");
   };
   const navigation = [
@@ -56,6 +92,11 @@ export default function App() {
     { id: "lab", name: "Replay lab", icon: FlaskConical },
     { id: "evidence", name: "Evidence", icon: Activity },
     { id: "system", name: "Architecture", icon: GitBranch },
+    { id: "calibration", name: "Calibration", icon: SlidersHorizontal },
+    { id: "experiments", name: "Experiments", icon: FlaskRound },
+    { id: "data", name: "Data", icon: Database },
+    { id: "library", name: "Runs", icon: FolderOpen },
+    { id: "diagnostics", name: "Diagnostics", icon: Gauge },
   ] as const;
   return (
     <div className="application">
@@ -104,10 +145,27 @@ export default function App() {
             <i /> <small>TEAM RECALIBRATE</small>
           </div>
           <div className="header-right">
-            <span className="simulation-tag">
-              <i />
-              Simulation demo
-            </span>
+            {/* buffy: ⌘K launcher — affordance in the header opens it too */}
+            <button
+              className="cmdk-trigger"
+              onClick={() => setPalette(true)}
+              aria-label="Open command palette"
+            >
+              <SearchIcon size={13} />
+              <span>Jump to…</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+            {replay.source === "iovnbd" ? (
+              <span className="simulation-tag iovnbd">
+                <i />
+                MODE: IO-VNBD REPLAY · REAL DATA
+              </span>
+            ) : (
+              <span className="simulation-tag">
+                <i />
+                MODE: SYNTHETIC
+              </span>
+            )}
             <span className="offline-tag">Local & offline</span>
           </div>
         </header>
@@ -124,7 +182,11 @@ export default function App() {
                     ? "The replay lab."
                     : view === "evidence"
                       ? "Evidence over assumptions."
-                      : "Built around trust."}
+                      : view === "calibration"
+                        ? "Sensor alignment."
+                        : view === "experiments"
+                          ? "Segment experiments."
+                          : "Built around trust."}
               </h1>
               <p>
                 {view === "navigate"
@@ -133,19 +195,37 @@ export default function App() {
                     ? "Introduce a failure. Inspect how the system responds."
                     : view === "evidence"
                       ? "A transparent view of what this simulation actually measures."
-                      : "Explore the pipeline from sensor observations to navigation."}
+                      : view === "calibration"
+                        ? "Phone-to-vehicle frame alignment and sensor bias."
+                        : view === "experiments"
+                          ? "Compare all 5 IO-VNBD segments. No estimator wins every time."
+                          : "Explore the pipeline from sensor observations to navigation."}
               </p>
             </div>
-            <button
-              className="button primary"
-              onClick={() => {
-                replay.playDemo();
-                setView("navigate");
-              }}
-            >
-              <Play size={14} fill="currentColor" />
-              Play demo <span>02:00</span>
-            </button>
+            <div className="heading-actions">
+              <button
+                className="button primary"
+                onClick={() => {
+                  replay.playDemo();
+                  setView("navigate");
+                  setJudge(true);
+                }}
+              >
+                <ShieldCheck size={14} />
+                Judge mode <span>narrated</span>
+              </button>
+              <button
+                className="button"
+                onClick={() => {
+                  replay.playDemo();
+                  setView("navigate");
+                  setJudge(false);
+                }}
+              >
+                <Play size={14} fill="currentColor" />
+                Play demo <span>02:00</span>
+              </button>
+            </div>
           </div>
           <div className="workspace-toolbar">
             <button
@@ -194,20 +274,51 @@ export default function App() {
                   run={replay.run}
                   snapshot={replay.snapshot}
                   basic={basic}
+                  playing={replay.playing}
                 />
                 <Telemetry
                   replay={replay}
                   basic={basic}
                   onExplain={() => setModal("help")}
                 />
+                <FallbackCard snapshot={replay.snapshot} />
+                {!basic && (
+                  <div className="expert-stack">
+                    <TrustPanel
+                      snapshot={replay.snapshot}
+                      iovnbd={replay.run.iovnbd}
+                    />
+                    <ConstraintsPanel
+                      snapshot={replay.snapshot}
+                      source={replay.source}
+                    />
+                    <ChartsPanel replay={replay} />
+                    <ExplainabilityPanel replay={replay} />
+                  </div>
+                )}
               </div>
             ) : view === "lab" ? (
               <ReplayLab replay={replay} />
             ) : view === "evidence" ? (
               <Evidence replay={replay} />
+            ) : view === "data" ? (
+              <>
+                <DataView replay={replay} />
+                {/* buffy: §32 model inspector lives with the dataset story */}
+                <ModelInspector />
+              </>
+            ) : view === "library" ? (
+              <RunLibrary replay={replay} />
+            ) : view === "diagnostics" ? (
+              <DiagnosticsView replay={replay} />
+            ) : view === "calibration" ? (
+              <CalibrationView replay={replay} />
+            ) : view === "experiments" ? (
+              <ExperimentsView replay={replay} />
             ) : (
-              <SystemView />
+              <SystemView snapshot={replay.snapshot} />
             )}
+            <JudgeOverlay callout={callout} />
             <Playback replay={replay} />
           </div>
           <footer className="app-footer">
@@ -231,52 +342,86 @@ export default function App() {
       {modal === "scenario" && (
         <Modal title="Configure your journey" close={() => setModal(null)}>
           <p className="modal-intro">
-            Choose a scenario and its blackout duration. Applying changes resets
-            the replay.
+            Choose a data source, a scenario and its blackout duration.
+            Applying changes resets the replay.
           </p>
-          <div className="scenario-options">
-            {scenarios.map((s) => (
+          {replay.iovReady && (
+            <div className="source-control" role="group" aria-label="Data source">
               <button
-                key={s.id}
-                className={replay.config.scenario === s.id ? "selected" : ""}
-                onClick={() => configure({ scenario: s.id })}
+                className={replay.source === "synthetic" ? "active" : ""}
+                onClick={() => {
+                  replay.switchSource("synthetic");
+                  setJudge(false);
+                }}
               >
-                <span>
-                  <strong>{s.name}</strong>
-                  <small>{s.subtitle}</small>
-                </span>
-                {replay.config.scenario === s.id ? (
-                  <Check size={18} />
-                ) : (
-                  <ArrowUpRight size={18} />
-                )}
+                <strong>SYNTHETIC DEMO</strong>
+                <small>Bundled scenario engine · offline</small>
               </button>
-            ))}
+              <button
+                className={replay.source === "iovnbd" ? "active" : ""}
+                onClick={() => {
+                  replay.switchSource("iovnbd");
+                  setJudge(false);
+                }}
+              >
+                <strong>IO-VNBD REPLAY</strong>
+                <small>Real benchmark data · UK drives · 10 Hz</small>
+              </button>
+            </div>
+          )}
+          <div className="scenario-options">
+            {(replay.source === "iovnbd" ? replay.iovnbdList : scenarios).map(
+              (s) => (
+                <button
+                  key={s.id}
+                  className={replay.config.scenario === s.id ? "selected" : ""}
+                  onClick={() =>
+                    replay.source === "iovnbd"
+                      ? replay.switchSource("iovnbd", s.id)
+                      : configure({ scenario: s.id })
+                  }
+                >
+                  <span>
+                    <strong>{s.name}</strong>
+                    <small>{s.subtitle}</small>
+                  </span>
+                  {replay.config.scenario === s.id ? (
+                    <Check size={18} />
+                  ) : (
+                    <ArrowUpRight size={18} />
+                  )}
+                </button>
+              ),
+            )}
           </div>
-          <label className="duration-field">
-            GNSS blackout duration
-            <select
-              aria-label="Blackout duration"
-              value={replay.config.blackout}
-              onChange={(e) => configure({ blackout: +e.target.value })}
-            >
-              {[10, 30, 60].map((s) => (
-                <option key={s} value={s}>
-                  {s} seconds
-                </option>
-              ))}
-            </select>
-          </label>
-          <Toggle
-            label="ML virtual odometer"
-            checked={replay.config.learned}
-            onChange={() => configure({ learned: !replay.config.learned })}
-          />
-          <Toggle
-            label="Map matching"
-            checked={replay.config.map}
-            onChange={() => configure({ map: !replay.config.map })}
-          />
+          {replay.source === "synthetic" && (
+            <>
+              <label className="duration-field">
+                GNSS blackout duration
+                <select
+                  aria-label="Blackout duration"
+                  value={replay.config.blackout}
+                  onChange={(e) => configure({ blackout: +e.target.value })}
+                >
+                  {[10, 30, 60].map((s) => (
+                    <option key={s} value={s}>
+                      {s} seconds
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Toggle
+                label="ML virtual odometer"
+                checked={replay.config.learned}
+                onChange={() => configure({ learned: !replay.config.learned })}
+              />
+              <Toggle
+                label="Map matching"
+                checked={replay.config.map}
+                onChange={() => configure({ map: !replay.config.map })}
+              />
+            </>
+          )}
           <button
             className="button primary modal-done"
             onClick={() => setModal(null)}
@@ -316,13 +461,20 @@ export default function App() {
             </p>
             <h3>Prototype boundary</h3>
             <p>
-              The planar simulation and pipeline are functional. A production
-              15-state ES-EKF, trained ML model, Android sensors, and dataset
-              validation remain future work.
+              The replay pipeline, 15-state ES-EKF, learned motion-mode
+              classifier, and Viterbi map matching are functional and run
+              locally. Android live sensors and external IMU inputs are future
+              work — every replay uses recorded real data, labeled as such.
             </p>
           </div>
         </Modal>
       )}
+      {/* buffy: ⌘K command palette + global Space/←/→ transport */}
+      <CommandPalette
+        replay={replay}
+        setView={(v) => setView(v as AppView)}
+        setJudge={setJudge}
+      />
     </div>
   );
 }

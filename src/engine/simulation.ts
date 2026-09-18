@@ -120,7 +120,7 @@ function stateEvent(
   return { id, at, title, reason, action, severity };
 }
 
-export function simulate(config: Config): Run {
+export function simulate(config: Config & { useNHC?: boolean; useZUPT?: boolean; useML?: boolean; useGNSSGate?: boolean }): Run {
   const scenario =
       scenarios.find((candidate) => candidate.id === config.scenario) ??
       scenarios[0],
@@ -188,11 +188,14 @@ export function simulate(config: Config): Run {
         along(scenario.route, Math.max(0, truthDistance - 0.08)),
         along(scenario.route, truthDistance + 0.08),
       );
-    const active = (kind: string, seconds: number) =>
-      faults.some(
+    const faultDurations = config.faultDurations ?? {};
+    const active = (kind: string, defaultSeconds: number) => {
+      const seconds = faultDurations[kind as keyof typeof faultDurations] ?? defaultSeconds;
+      return faults.some(
         (fault) =>
           fault.kind === kind && t >= fault.at && t < fault.at + seconds,
       );
+    };
     const shock = active("shock", 3),
       mount = active("mount", 8),
       ood = active("speed", 10),
@@ -233,7 +236,7 @@ export function simulate(config: Config): Run {
 
     if (index) {
       propagate(ins, observation, false, 0.7);
-      propagate(ekf, observation, config.learned, config.learned ? 0.24 : 0.55);
+      propagate(ekf, observation, (config.useML ?? true) && config.learned, config.learned ? 0.24 : 0.55);
       propagate(classical, observation, false, 0.55);
     }
 
@@ -253,7 +256,8 @@ export function simulate(config: Config): Run {
 
     if (fix) {
       gnssResidual = dist(fix, ekf.position);
-      rejected = gnssResidual > Math.max(35, Math.sqrt(ekf.variance) * 6);
+      const gate = config.useGNSSGate ?? true;
+      rejected = gate && gnssResidual > Math.max(35, Math.sqrt(ekf.variance) * 6);
       if (rejected) {
         consistent = 0;
         if (state === "TRUSTED") state = "DEGRADED";
@@ -444,6 +448,9 @@ export function simulate(config: Config): Run {
       mlOod: ood ? 0.91 : shock ? 0.36 : 0.04,
       mlUsed,
       mapUsed,
+      // §7.3: synthetic mode has real per-frame road-candidate posteriors —
+      // use the winner's probability; null when the lock isn't active
+      mapLock: mapUsed ? ranked[0].probability : null,
       shock,
       candidates: ranked.map((projection) => ({
         name: projection.name,

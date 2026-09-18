@@ -226,7 +226,11 @@ export function Telemetry({
       )}
       <div className="telemetry-note">
         <i />
-        <span>All values are simulated. Real-world validation is pending.</span>
+        <span>
+          {replay.run.source === "iovnbd"
+            ? "Real IO-VNBD benchmark replay: estimator outputs computed from recorded sensors; reference is the GNSS track."
+            : "All values are simulated. Real-world validation is pending."}
+        </span>
       </div>
     </aside>
   );

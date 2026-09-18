@@ -6,3 +6,20 @@ vite.config.d.ts
 .DS_Store
 AstraNav_IDR_Complete_Researcher_Handbook.pdf
 Team-Recalibrate-SIH2026-IDEA-Presentation.pptx
+
+# raw IO-VNBD dataset (85 MB CSVs; re-download via git-LFS from upstream,
+# regenerate bundles with: python tools/prep_iovnbd.py)
+data/
+
+# python bytecode
+__pycache__/
+*.pyc
+
+# accidental duplicate downloads
+04_SENSOR_PHYSICS_CALIBRATION_AND_COORDINATE_FRAMES (1).md
+Team-Recalibrate-SIH2026-IDEA-Presentation (1).pptx
+
+# field-guide working files (local only, never commit)
+docs/handover.md
+docs/decisions.md
+docs/constraints.md
