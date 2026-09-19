@@ -29,4 +29,8 @@ docs/decisions.md
 docs/constraints.md
 
 
+# multi-agent coordination board (local only, removed from repo at cleanup;
+# user commits manually and the board must never leak into submission history)
+AGENTS.md
+
 AstraNav_IDR_5_Minute.md
