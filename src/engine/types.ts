@@ -106,7 +106,7 @@ export type Run = {
   events: Event[];
   duration: number;
   /** Data provenance for mode badges and evidence labels. */
-  source?: "synthetic" | "iovnbd";
+  source?: "synthetic" | "iovnbd" | "byod";
   /** Present only when source === "iovnbd": benchmark metadata for this run. */
   iovnbd?: {
     segmentId: string;

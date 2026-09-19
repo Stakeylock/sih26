@@ -12,7 +12,7 @@ export type SavedRun = {
   /** Unique run identifier (UUID v4). */
   run_id: string;
   /** Data provenance: "synthetic" | "iovnbd". */
-  source: "synthetic" | "iovnbd";
+  source: "synthetic" | "iovnbd" | "byod";
   /** Trip/segment identifier (e.g., "S1-B60-A"). */
   trip: string;
   /** Blackout duration in seconds. */
@@ -44,7 +44,9 @@ export function toSavedRun(run: Run): SavedRun {
   const src = run.source ?? "synthetic";
   const trip = src === "iovnbd" && run.iovnbd
     ? run.iovnbd.segmentId
-    : run.scenario.id;
+    : src === "byod"
+      ? "OWN DRIVE"
+      : run.scenario.id;
   const finalErrors = src === "iovnbd" && run.iovnbd
     ? run.iovnbd.finalErrors
     : {};

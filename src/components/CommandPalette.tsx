@@ -12,6 +12,7 @@ import type { Replay } from "../hooks/useReplay";
  * demo (judges can jump anywhere instantly) and power users.
  *
  * Actions: jump to any of the 10 views · play/pause · restart · 2-min demo ·
+ * load a BYOD capture (hidden file input) ·
  * switch to IO-VNBD segments.
  */
 type Ctx = {
@@ -94,6 +95,19 @@ const ITEMS: Item[] = [
     group: "Data",
     run: ({ replay, setView }) => {
       replay.switchSource("synthetic");
+      setView("navigate");
+    },
+  },
+  // buffy: BYOD from the palette — same hidden input the modal uses; the
+  // element lives in App (id=byod-input) so both entry points share one file
+  // picker and one onChange handler.
+  {
+    id: "act-byod",
+    label: "Load your own drive (BYOD capture)…",
+    icon: BrainCircuit,
+    group: "Data",
+    run: ({ setView }) => {
+      document.getElementById("byod-input")?.click();
       setView("navigate");
     },
   },

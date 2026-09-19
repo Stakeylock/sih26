@@ -25,16 +25,19 @@ export function judgeStages(run: Run): JudgeStage[] {
   const b = run.scenario.start; // blackout begins
   const e = b + run.config.blackout; // blackout ends
   const iov = run.source === "iovnbd";
+  const byod = run.source === "byod";
   const stages: JudgeStage[] = [
     {
       index: 1,
       total: 6,
       at: Math.max(2, b - 22),
       until: Math.max(6, b - 12),
-      title: iov ? "REAL GNSS DATA · IO-VNBD" : "STABLE FIX",
+      title: iov ? "REAL GNSS DATA · IO-VNBD" : byod ? "YOUR OWN DRIVE · LIVE" : "STABLE FIX",
       body: iov
         ? `Replaying a real drive (trip ${run.iovnbd?.trip}) recorded at 10 Hz. GNSS is healthy — the fused estimate tracks the reference.`
-        : "The vehicle begins with a healthy GNSS fix. Watch the fused estimate track the reference route.",
+        : byod
+          ? "This is YOUR phone: gyro, compass and GPS recorded on this device minutes ago, navigating through the same 15-state filter. GNSS is healthy — the fused estimate tracks your GPS track."
+          : "The vehicle begins with a healthy GNSS fix. Watch the fused estimate track the reference route.",
       rate: 1,
     },
     {
@@ -81,7 +84,9 @@ export function judgeStages(run: Run): JudgeStage[] {
       title: "VERIFY IN EVIDENCE",
       body: iov
         ? "Final errors, drift and calibration for this real blackout are in the Evidence view — measured, not claimed."
-        : "Final errors and drift for this run are in the Evidence view — measured within the simulation, not claimed.",
+        : byod
+          ? "Your drive's calibration, route lock and self-referenced accuracy are in Evidence — and the Judge report button exports it all as a document."
+          : "Final errors and drift for this run are in the Evidence view — measured within the simulation, not claimed.",
       rate: 1,
     },
   ];

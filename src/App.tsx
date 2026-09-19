@@ -393,9 +393,10 @@ export default function App() {
           </footer>
         </main>
       </div>
-      {/* buffy: hidden BYOD capture loader */}
+      {/* buffy: hidden BYOD capture loader (id used by the Ctrl K palette too) */}
       <input
         ref={byodInput}
+        id="byod-input"
         type="file"
         accept="application/json,.json"
         style={{ display: "none" }}
