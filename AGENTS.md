@@ -4,6 +4,17 @@
 start. Append to the LOG after every completed task. Never rewrite another agent's
 entries.**
 
+## 2026-09-19 ~14:15 — Buffy: plan-vs-code gap audit + CF legend disclosure
+- Audited the two root planning docs against HEAD 0ec86e6: the Post-BYOD Hardening plan
+  (written vs df434c0) is ~90% already implemented by 4e0f6b1 — remaining gaps were
+  cosmetic. Closed the one real one: map legend during counterfactual runs now reads
+  "Reference (hidden from filter)" with tooltip (plan SS20 / video-script overlay).
+- Verified video script's claims (LOSE GNSS button, CF banner, Judge Report CF table,
+  leakage-invariance test named in plan SS15) all exist in code. Docs stale-test-count
+  issue already fixed. Video script reviewed commit 4e0f6b1 == accurate vs HEAD.
+- 70/70 tests, tsc 0, build OK. Untracked: the two planning .md files + anav-verify.mjs
+  (local tool, do not commit).
+
 ## HARD RULES (all agents, no exceptions)
 
 1. **NEVER `git commit`, `git push`, or stage files.** The user commits manually if ever.

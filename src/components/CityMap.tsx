@@ -633,9 +633,15 @@ export function CityMap({
           {/* N2 (Antigravity audit): legend is the always-on decoder ring —
               every swatch mirrors its trace's color AND dash pattern so the
               5 traces are explainable without opening any toggle. */}
-          <span>
+          <span
+            title={
+              run.byod?.counterfactual
+                ? "Reference only — hidden from the estimator during the counterfactual outage"
+                : "Recorded GNSS track used as the evaluation reference"
+            }
+          >
             <i className="grey dashref" />
-            GNSS reference
+            {run.byod?.counterfactual ? "Reference (hidden from filter)" : "GNSS reference"}
           </span>
           <span>
             {/* audit #1: pattern+color double encoding, WCAG-safe */}
