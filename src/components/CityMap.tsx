@@ -527,12 +527,31 @@ export function CityMap({
         <div className="north">
           <Compass size={18} />N
         </div>
+        {/* buffy: true scale bar — local frame is ENU meters, so the bar is
+            exact for the data (streets are stylized). Picks a round distance
+            near 1/5 of the shown width; width% keeps it honest at any zoom. */}
+        {(() => {
+          const target = w / 5;
+          const nice = [10, 20, 50, 100, 200, 500, 1000].find((v) => v >= target) ?? 1000;
+          return (
+            <div className="scalebar" aria-hidden>
+              <i style={{ width: `${(nice / w) * 100}%` }} />
+              <span>{nice >= 1000 ? `${nice / 1000} km` : `${nice} m`}</span>
+            </div>
+          );
+        })()}
       </div>
       <div className="map-bottom">
         <div className="map-legend">
+          {/* N2 (Antigravity audit): legend is the always-on decoder ring —
+              every swatch mirrors its trace's color AND dash pattern so the
+              5 traces are explainable without opening any toggle. */}
           <span>
-            {/* audit #1: legend swatches mirror the stroke patterns —
-                double encoding for the ~8% of colorblind viewers */}
+            <i className="grey dashref" />
+            GNSS reference
+          </span>
+          <span>
+            {/* audit #1: pattern+color double encoding, WCAG-safe */}
             <i className="amber dashed" />
             INS / DR
           </span>
@@ -541,13 +560,19 @@ export function CityMap({
             ES-EKF + ML
           </span>
           <span title="Route-topology replay matcher; full OSM graph is future work">
-            <i className="lime" />
+            <i className="lime dashed" />
             Route match
           </span>
           <span>
             <i className="coral dotted" />
             Classical
           </span>
+          {snapshot.gnss && (
+            <span title="Gated GNSS fixes fused into the filter">
+              <i className="gnss-dot" />
+              GNSS fix
+            </span>
+          )}
         </div>
         <Status state={snapshot.state} />
       </div>

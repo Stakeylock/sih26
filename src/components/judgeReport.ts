@@ -1,0 +1,147 @@
+/**
+ * Judge Report — one-click, self-contained HTML evidence document (plan §16.2
+ * "report export", the last P2 gap).
+ *
+ * Everything embedded is REAL run data: provenance, configuration (incl.
+ * ablation flags), per-branch final errors, and the evaluation protocol.
+ * No network, no deps — a Blob download judges can open on any machine,
+ * print, or attach to their evaluation notes.
+ */
+import type { Run } from "../engine/types";
+
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const fmtM = (v: number | null | undefined) =>
+  v == null || !Number.isFinite(v) ? "—" : `${v.toFixed(1)} m`;
+
+export function buildJudgeReportHtml(run: Run): string {
+  const now = new Date();
+  const iov = run.source === "iovnbd";
+  const cfg = run.config;
+  // finalErrors is a Record keyed by estimator branch: final/drift/rmse/p95 each.
+  const fe = run.iovnbd?.finalErrors ?? {};
+  const live = run.iovnbd?.live;
+  const get = (k: string) => fe[k]?.final;
+
+  const rows: { label: string; value: string }[] = [
+    { label: "Raw INS (dead reckoning)", value: fmtM(get("ins")) },
+    { label: "Classical complementary + ZUPT (no ML)", value: fmtM(get("classical")) },
+    { label: "AstraNav full system (offline benchmark)", value: fmtM(get("ekf")) },
+    ...(live?.final != null
+      ? [{ label: "Live in-browser 15-state ES-EKF", value: fmtM(live.final) }]
+      : []),
+  ];
+  const numeric = rows
+    .map((r) => parseFloat(r.value))
+    .filter((v) => Number.isFinite(v));
+  const bestVal = numeric.length ? Math.min(...numeric) : null;
+
+  const metricRow = (r: { label: string; value: string }) => `
+    <tr>
+      <td>${esc(r.label)}</td>
+      <td class="num${bestVal != null && parseFloat(r.value) === bestVal ? " best" : ""}">${esc(r.value)}</td>
+    </tr>`;
+
+  const insFinal = get("ins");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstraNav-IDR — Judge Report — ${esc(cfg.scenario)}</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 14px/1.55 "Segoe UI", system-ui, sans-serif; color: #17272b;
+         max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 21px; margin: 0 0 2px; letter-spacing: .2px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.4px;
+       color: #4c6166; border-bottom: 1px solid #dde5e7; padding-bottom: 6px;
+       margin: 28px 0 10px; }
+  .sub { color: #5a7075; font-size: 12.5px; margin-bottom: 20px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700;
+           letter-spacing: 1px; padding: 2px 9px; border-radius: 3px;
+           margin-right: 6px; }
+  .badge.real { background: #12312c; color: #7ef0c0; }
+  .badge.synth { background: #2b2358; color: #b9a6ed; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #e7edee; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+       color: #5a7075; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums;
+           font-family: Consolas, monospace; }
+  td.num.best { color: #0c7a55; font-weight: 700; }
+  .kv { display: grid; grid-template-columns: 220px 1fr; gap: 3px 16px; }
+  .kv b { color: #4c6166; font-weight: 600; }
+  .note { background: #f4f7f5; border-left: 3px solid #0c7a55;
+          padding: 10px 14px; font-size: 13px; margin: 10px 0; }
+  .warn { background: #fdf6ec; border-left: 3px solid #b9822a; }
+  footer { margin-top: 34px; font-size: 11.5px; color: #7a8b8f;
+           border-top: 1px solid #dde5e7; padding-top: 10px; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+  <h1>AstraNav-IDR — Navigation Evidence Report</h1>
+  <div class="sub">
+    <span class="badge ${iov ? "real" : "synth"}">${iov ? "REAL DATA · IO-VNBD" : "SYNTHETIC SCENARIO"}</span>
+    Run <code>${esc(cfg.scenario)}${iov ? ` · trip ${esc(run.iovnbd?.trip ?? "—")}` : ""}</code> · generated ${esc(now.toLocaleString())}
+  </div>
+
+  <h2>Run provenance</h2>
+  <div class="kv">
+    <b>Data source</b><span>${iov ? `IO-VNBD benchmark, trip ${esc(run.iovnbd?.trip ?? "—")}` : "Deterministic synthetic scenario"}</span>
+    <b>GNSS outage</b><span>${cfg.blackout}s (window begins t+${run.scenario.start}s)</span>
+    <b>Seed</b><span>${esc(String(cfg.seed ?? "—"))}</span>
+    <b>Ablation flags</b><span>NHC ${cfg.useNHC !== false ? "on" : "OFF"} · ZUPT ${cfg.useZUPT !== false ? "on" : "OFF"} · ML aid ${cfg.useML !== false ? "on" : "OFF"} · GNSS gate ${cfg.useGNSSGate !== false ? "on" : "OFF"}</span>
+    ${cfg.faults?.length ? `<b>Injected faults</b><span>${esc(JSON.stringify(cfg.faults))}</span>` : ""}
+  </div>
+
+  <h2>Final position error after ${cfg.blackout}s GNSS-denied window</h2>
+  <table>
+    <tr><th>Estimator</th><th style="text-align:right">Final horizontal error</th></tr>
+    ${rows.map(metricRow).join("")}
+  </table>
+  ${
+    bestVal != null && insFinal != null && insFinal > 0
+      ? `<div class="note">Error reduction vs raw INS: <b>${(((insFinal - bestVal) / insFinal) * 100).toFixed(0)}%</b> over the same outage window, same sensor stream, no tuning per-branch.</div>`
+      : ""
+  }
+
+  <h2>Evaluation protocol</h2>
+  <div class="kv">
+    <b>Error anchoring</b><span>Self-referenced: position error resets to zero at blackout start, isolating dead-reckoning drift from pre-outage error.</span>
+    <b>ML protocol</b><span>Device-adapted temporal holdout — first 60% of each trip trains, evaluation happens strictly in the unseen later 40%. Cross-mount transfer (LOTO) reported separately.</span>
+    <b>GNSS integrity</b><span>χ²(2, 0.99) NIS gate at 9.21 rejects corrupted fixes before they enter the filter.</span>
+    <b>ML-gated ZUPT</b><span>Zero-velocity update fires only on physical stationary detection AND learned P(stopped) &gt; 0.45 held 2 s.</span>
+  </div>
+
+  <h2>Honest limitations</h2>
+  <div class="note warn">
+    Replay adapter: the live filter propagates with recorded gyro/compass channels;
+    horizontal phone-accelerometer propagation is intentionally suppressed
+    (commercial-grade noise). Map matching uses the recorded route topology — a full
+    OSM road graph is future work. The systematic-heading protection bound is
+    SBAS-inspired, not formal aviation RAIM. Android/ONNX deployment is a
+    documented roadmap item, not part of this build.
+  </div>
+
+  <footer>
+    AstraNav-IDR · Team Recalibrate · SIH26168 — Intelligent Dead Reckoning ·
+    41 automated tests, CI-gated · Fully offline evidence console ·
+    This report is machine-generated from run data at export time.
+  </footer>
+</body>
+</html>`;
+}
+
+/** Trigger a browser download of the report for `run`. */
+export function downloadJudgeReport(run: Run): void {
+  const blob = new Blob([buildJudgeReportHtml(run)], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `astranav-judge-report-${run.source ?? "synthetic"}-${run.iovnbd?.trip ?? run.config.scenario}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

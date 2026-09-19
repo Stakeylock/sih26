@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>AstraNav-IDR — Sensor Capture</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    background: #0d1518; color: #e8f0f1;
+    max-width: 560px; margin: 0 auto; padding: 20px 16px 80px;
+  }
+  h1 { font-size: 18px; letter-spacing: .3px; margin-bottom: 2px; }
+  h1 b { color: #b6e388; }
+  .sub { color: #84959a; font-size: 12.5px; margin-bottom: 18px; }
+  .card {
+    border: 1px solid #223236; border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 12px; background: #101a1d;
+  }
+  .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+  .row .k { color: #84959a; font-size: 12px; letter-spacing: .8px; }
+  .row .v { font-variant-numeric: tabular-nums; font-family: Consolas, monospace; }
+  .ok { color: #7ef0c0; } .warn { color: #e8b664; } .bad { color: #f49484; }
+  button {
+    width: 100%; padding: 14px; border: 0; border-radius: 6px;
+    background: #b6e388; color: #101a1d; font-weight: 700; font-size: 15px;
+    letter-spacing: 1px; cursor: pointer; margin-top: 6px;
+  }
+  button.stop { background: #f49484; }
+  button.dl { background: #6fd3e8; display: none; }
+  button:disabled { opacity: .45; cursor: default; }
+  .pill {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+    background: #223236; color: #84959a;
+  }
+  .pill.rec { background: #3a1d1d; color: #f49484; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .55; } }
+  .note { font-size: 11.5px; color: #84959a; margin-top: 8px; }
+  .bar { height: 4px; background: #223236; border-radius: 2px; overflow: hidden; margin-top: 10px; }
+  .bar i { display: block; height: 100%; background: #b6e388; width: 0%; transition: width .3s; }
+</style>
+</head>
+<body>
+  <h1>AstraNav<b>IDR</b> · Sensor Capture</h1>
+  <p class="sub">Bring Your Own Drive — record your phone's sensors, navigate them in the console. All processing on-device; nothing leaves the phone.</p>
+
+  <div class="card">
+    <div class="row"><span class="k">STATUS</span><span class="v" id="status">IDLE <span class="pill">WAITING</span></span></div>
+    <div class="row"><span class="k">ELAPSED</span><span class="v" id="elapsed">0:00</span></div>
+    <div class="row"><span class="k">SAMPLES</span><span class="v" id="samples">0</span></div>
+    <div class="row"><span class="k">GPS FIX</span><span class="v" id="gps">—</span></div>
+    <div class="row"><span class="k">ACCURACY</span><span class="v" id="acc">—</span></div>
+    <div class="row"><span class="k">SPEED</span><span class="v" id="spd">—</span></div>
+    <div class="row"><span class="k">HEADING</span><span class="v" id="hdg">—</span></div>
+    <div class="bar"><i id="mem"></i></div>
+    <p class="note">Est. capture size <span id="size">~0 KB</span>. Keep the phone mounted or held steady; drive normally.</p>
+  </div>
+
+  <button id="btn">START CAPTURE</button>
+  <button id="dl" class="dl">DOWNLOAD CAPTURE (.json)</button>
+
+  <p class="note" id="perm"></p>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = {
+    rec: false, t0: 0,
+    t: [], imuWz: [], yawPhone: [],
+    gpsLat: [], gpsLon: [], gpsAcc: [], gpsSpeed: [],
+    gpsT: [], // separate gps timeline (1 Hz-ish), merged on export
+    headingDeg: null, watchId: null, motionId: null, orientId: null,
+    lastYaw: null, yawAcc: 0,
+  };
+
+  const fmtT = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+
+  function ui() {
+    if (!state.rec) return;
+    const el = (performance.now() - state.t0) / 1000;
+    $("elapsed").textContent = fmtT(el);
+    $("samples").textContent = state.imuWz.length.toLocaleString();
+    $("mem").style.width = Math.min(100, state.imuWz.length / 120) + "%"; // 2 min ≈ full
+    const kb = state.imuWz.length * 5 * 8 / 1024;
+    $("size").textContent = `~${Math.round(kb).toLocaleString()} KB`;
+    requestAnimationFrame(ui);
+  }
+
+  function setStatus(html) { $("status").innerHTML = html; }
+
+  // --- sensors -----------------------------------------------------------
+  function onMotion(e) {
+    if (!state.rec) return;
+    const r = e.rotationRate;
+    if (r && r.alpha != null) {
+      // alpha = yaw-axis rate on most phones; deg/s → rad/s
+      state.imuWz.push(((r.alpha || 0) * Math.PI) / 180);
+      const now = (performance.now() - state.t0) / 1000;
+      // resample compass to the motion timeline
+      state.yawPhone.push(state.headingDeg ?? state.yawPhone[state.yawPhone.length-1] ?? 0);
+      state.t.push(now);
+    }
+  }
+
+  function onOrient(e) {
+    if (e.alpha != null) {
+      // compass heading (0=N); webkitCompassHeading on iOS is truer
+      const h = (typeof e.webkitCompassHeading === "number")
+        ? e.webkitCompassHeading
+        : (360 - e.alpha) % 360;
+      state.headingDeg = h;
+      if (state.rec) $("hdg").textContent = h.toFixed(0) + "°";
+    }
+  }
+
+  function onGps(pos) {
+    const c = pos.coords;
+    $("gps").textContent = c.latitude.toFixed(5) + ", " + c.longitude.toFixed(5);
+    $("acc").textContent = "±" + (c.accuracy ?? 0).toFixed(0) + " m";
+    $("spd").textContent = ((c.speed ?? 0) * 3.6).toFixed(1) + " km/h";
+    if (!state.rec) return;
+    state.gpsT.push((performance.now() - state.t0) / 1000);
+    state.gpsLat.push(c.latitude); state.gpsLon.push(c.longitude);
+    state.gpsAcc.push(c.accuracy ?? null);
+    state.gpsSpeed.push(c.speed ?? null);
+  }
+
+  function gpsErr(e) {
+    $("gps").innerHTML = '<span class="bad">DENIED — ' + e.message + '</span>';
+  }
+
+  // --- start / stop ------------------------------------------------------
+  async function start() {
+    $("perm").textContent = "";
+    // 1) permissions (iOS needs requestPermission on both APIs)
+    try {
+      if (typeof DeviceMotionEvent !== "undefined" && DeviceMotionEvent.requestPermission) {
+        const p = await DeviceMotionEvent.requestPermission();
+        if (p !== "granted") throw new Error("motion permission denied");
+      }
+      if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
+        await DeviceOrientationEvent.requestPermission();
+      }
+    } catch (err) {
+      $("perm").innerHTML = '<span class="bad">Sensor permission: ' + err.message + "</span>";
+      return;
+    }
+    // 2) GPS first (so the first fix anchors the timeline)
+    if (!("geolocation" in navigator)) {
+      $("perm").innerHTML = '<span class="bad">No geolocation on this device</span>';
+      return;
+    }
+    state.watchId = navigator.geolocation.watchPosition(onGps, gpsErr, {
+      enableHighAccuracy: true, maximumAge: 1000, timeout: 8000,
+    });
+
+    state.rec = true;
+    state.t0 = performance.now();
+    state.motionId = window.addEventListener("devicemotion", onMotion, { passive: true });
+    state.orientId = window.addEventListener("deviceorientationabsolute", onOrient, true)
+      || window.addEventListener("deviceorientation", onOrient, true);
+
+    $("btn").textContent = "STOP CAPTURE";
+    $("btn").classList.add("stop");
+    setStatus('RECORDING <span class="pill rec">● REC</span>');
+    ui();
+  }
+
+  function stop() {
+    state.rec = false;
+    navigator.geolocation.clearWatch(state.watchId);
+    window.removeEventListener("devicemotion", onMotion);
+    window.removeEventListener("deviceorientationabsolute", onOrient, true);
+    window.removeEventListener("deviceorientation", onOrient, true);
+    setStatus('DONE <span class="pill">CAPTURED</span>');
+    $("btn").style.display = "none";
+    $("dl").style.display = "block";
+    $("btn").textContent = "START CAPTURE";
+    $("btn").classList.remove("stop");
+  }
+
+  // --- export ------------------------------------------------------------
+  function mergeTo10Hz() {
+    // Build the engine's expected capture shape: resample GPS (its own
+    // timeline) onto the motion timeline epochs by nearest-sample hold.
+    const n = state.imuWz.length;
+    const lat = new Array(n).fill(null), lon = new Array(n).fill(null),
+          acc = new Array(n).fill(null), spd = new Array(n).fill(null);
+    let j = 0;
+    for (let i = 0; i < n; i++) {
+      const tq = state.t[i];
+      while (j + 1 < state.gpsT.length && state.gpsT[j + 1] <= tq) j++;
+      if (j < state.gpsT.length && Math.abs(state.gpsT[j] - tq) < 1.5) {
+        lat[i] = state.gpsLat[j]; lon[i] = state.gpsLon[j];
+        acc[i] = state.gpsAcc[j]; spd[i] = state.gpsSpeed[j];
+      }
+    }
+    // origin = first valid fix
+    let lat0 = null, lon0 = null;
+    for (let i = 0; i < n; i++)
+      if (lat[i] != null) { lat0 = lat[i]; lon0 = lon[i]; break; }
+    if (lat0 == null) { lat0 = 0; lon0 = 0; }
+    return {
+      kind: "astranav-byod", version: 1,
+      capturedAt: new Date(Date.now() - (state.t[n-1] || 0) * 1000).toISOString(),
+      rateHz: n / Math.max(1, state.t[n-1] || 1),
+      t: state.t.map((x) => Math.round(x * 1000) / 1000),
+      imuWz: state.imuWz.map((x) => Math.round(x * 1e4) / 1e4),
+      yawPhone: state.yawPhone.map((x) => Math.round(x * 10) / 10),
+      gpsLat: lat, gpsLon: lon, gpsAcc: acc, gpsSpeed: spd,
+      origin: { lat0, lon0 },
+    };
+  }
+
+  $("btn").addEventListener("click", () => (state.rec ? stop() : start()));
+  $("dl").addEventListener("click", () => {
+    const cap = mergeTo10Hz();
+    const blob = new Blob([JSON.stringify(cap)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `astranav-byod-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>

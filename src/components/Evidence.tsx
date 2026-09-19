@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { BookmarkPlus, Download, ArrowUpRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookmarkPlus, Download, ArrowUpRight, FileText } from "lucide-react";
 import { saveRun } from "../engine/runlog";
+import { downloadJudgeReport } from "./judgeReport";
+import { pairedBootstrapReduction, type BootstrapResult } from "../engine/bootstrap";
 import type { Replay } from "../hooks/useReplay";
 import type { EstimateKey, Run } from "../engine/types";
 import { dist, timeLabel } from "../engine/geometry";
@@ -147,6 +149,12 @@ export function Evidence({ replay }: { replay: Replay }) {
             <BookmarkPlus size={15} />
             {savedId ? "Saved ✓" : "Save run"}
           </button>
+          {/* buffy: §16.2 judge report — self-contained offline HTML evidence
+              doc (provenance, metrics vs INS, protocol, limitations). */}
+          <button className="button primary" onClick={() => downloadJudgeReport(replay.run)}>
+            <FileText size={15} />
+            Judge report
+          </button>
           <button
             className="button"
             onClick={() => exportRun(replay.run, replay.t, "json")}
@@ -235,6 +243,10 @@ export function Evidence({ replay }: { replay: Replay }) {
               {replay.run.iovnbd.calib.initialSpeed.toFixed(1)} m/s
             </span>
           </div>
+          {/* buffy: statistical-depth row — paired block-bootstrap 95% CI on
+              the INS→ours error reduction over the outage window. Answers
+              "29% — significant or noise?" Deterministic (LCG-seeded). */}
+          <BootstrapCI snapshots={replay.run.snapshots} />
           <small className="iov-note">
             Protocol: motion-mode model trained on the first 60% of this trip; blackout
             taken from the unseen remainder. Reference: GNSS track. Estimator errors are
@@ -442,6 +454,39 @@ function Metric({
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{detail}</small>
+    </div>
+  );
+}
+
+/**
+ * buffy: paired block-bootstrap 95% CI on the headline reduction
+ * (INS final error → ours) over the outage window. Deterministic via
+ * fixed LCG seed, so the number never changes between takes.
+ */
+function BootstrapCI({ snapshots }: { snapshots: Replay["run"]["snapshots"] }) {
+  const [ci, setCi] = useState<BootstrapResult | null | undefined>(undefined);
+  useEffect(() => {
+    // deferred so the table paints first; 500 resamples is ~ms on n≈600
+    const id = setTimeout(() => setCi(pairedBootstrapReduction(snapshots) ?? null), 40);
+    return () => clearTimeout(id);
+  }, [snapshots]);
+  if (ci === undefined)
+    return <div className="iov-ci">REDUCTION CONFIDENCE — resampling…</div>;
+  if (ci === null) return null; // window too short — honest silence, not fake stats
+  const sig = ci.loPct > 0;
+  return (
+    <div className="iov-ci" data-testid="bootstrap-ci">
+      <span>
+        <small>REDUCTION vs RAW INS (95% BLOCK BOOTSTRAP)</small>
+        <b className="mono">
+          {ci.pointPct.toFixed(0)}% [{ci.loPct.toFixed(0)}, {ci.hiPct.toFixed(0)}]
+        </b>
+      </span>
+      <small className={sig ? "ci-sig" : "ci-ns"}>
+        {sig
+          ? `significant — interval excludes 0 · ${ci.nBlocks} circular blocks × ${ci.blockLen} epochs`
+          : `NOT significant — interval includes 0 (${ci.nBlocks} blocks)`}
+      </small>
     </div>
   );
 }

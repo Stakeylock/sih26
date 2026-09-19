@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Activity } from "lucide-react";
 import type { Replay } from "../hooks/useReplay";
+import type { Point } from "../engine/types";
 
 /**
  * Time-synced chart drawer (plan §11/§37): small-multiple strip charts sharing
@@ -26,6 +27,10 @@ type Series = {
   data: (number | null)[];
   refLine?: { y: number; label: string };
   fmt: (v: number) => string;
+  /** Optional secondary series rendered on the same strip (error chart). */
+  alt?: { color: string; data: (number | null)[]; dash?: string };
+  /** Optional third series (classical branch on the error chart). */
+  alt2?: { color: string; data: (number | null)[]; dash?: string };
 };
 
 export function ChartsPanel({ replay }: { replay: Replay }) {
@@ -112,12 +117,73 @@ export function ChartsPanel({ replay }: { replay: Replay }) {
         fmt: (v) => `${Math.round(v * 100)}%`,
       },
     ];
+    // The headline strip: distance-from-reference per estimator branch over
+    // time. This is the money chart — INS diverges, ours stays bounded.
+    const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+    const errSeries: Series = {
+      key: "err",
+      label: "POSITION ERROR (INS · OURS · CLASSICAL)",
+      color: "var(--amber)",
+      data: sub.map((s) => dist(s.ins, s.reference)),
+      alt: {
+        color: "var(--cyan)",
+        data: sub.map((s) => dist(s.ekf, s.reference)),
+      },
+      // classical branch is optional on synthetic runs
+      ...(sub.some((s) => s.classical)
+        ? {
+            alt2: {
+              color: "var(--coral)",
+              data: sub.map((s) => (s.classical ? dist(s.classical, s.reference) : null)),
+              dash: "2 4",
+            },
+          }
+        : {}),
+      fmt: (v) => `${v.toFixed(0)} m`,
+    };
+    // buffy: diagnostic strips (plan §37) — only rendered when the live
+    // filter provides the channels (iovnbd runs). Real signals, not chrome:
+    // gyro-bias z (the ZARU-observable state), ML speed innovation, and
+    // per-step filter compute time.
+    const hasDiag = sub.some((s) => s.bias && s.filterMs != null);
+    const diag: Series[] = hasDiag
+      ? [
+          {
+            key: "bgz",
+            label: "GYRO BIAS Z (ZARU-OBSERVED)",
+            color: "var(--cyan)",
+            data: sub.map((s) => (s.bias ? s.bias.bg[2] : null)),
+            alt: {
+              color: "var(--amber)",
+              data: sub.map((s) =>
+                s.bias ? Math.hypot(s.bias.bg[0], s.bias.bg[1]) : null,
+              ),
+              dash: "2 4",
+            },
+            fmt: (v) => `${v.toFixed(4)} rad/s`,
+          },
+          {
+            key: "mlin",
+            label: "ML SPEED INNOVATION",
+            color: "var(--coral)",
+            data: sub.map((s) => s.innov?.ml ?? null),
+            fmt: (v) => `${v.toFixed(2)} m/s`,
+          },
+          {
+            key: "filt",
+            label: "FILTER STEP TIME",
+            color: "var(--violet, #b9a6ed)",
+            data: sub.map((s) => s.filterMs ?? null),
+            fmt: (v) => `${v.toFixed(2)} ms`,
+          },
+        ]
+      : [];
     return {
       n: sub.length,
       t0: snaps[0]?.t ?? 0,
       tEnd: snaps[n - 1]?.t ?? 0,
       black: { start: b0, end: b1 },
-      series,
+      series: [errSeries, ...series.filter((s) => s.key !== "err"), ...diag],
     };
   }, [run]);
 
@@ -162,7 +228,11 @@ export function ChartsPanel({ replay }: { replay: Replay }) {
                     {s.label}
                   </span>
                   <span className="chart-val mono">
-                    {cur == null ? "—" : s.fmt(cur)}
+                    {cur == null
+                      ? "—"
+                      : s.alt && s.alt.data[Math.max(0, Math.min(n - 1, cursorI))] != null
+                        ? `INS ${s.fmt(cur)} · OURS ${s.fmt(s.alt.data[Math.max(0, Math.min(n - 1, cursorI))]!)}`
+                        : s.fmt(cur)}
                   </span>
                 </div>
                 <svg
@@ -206,6 +276,16 @@ export function ChartsPanel({ replay }: { replay: Replay }) {
                       vectorEffect="non-scaling-stroke"
                     />
                   )}
+                  {/* buffy: on the error strip, shade INS−OURS — the gap IS
+                      the improvement; it balloons during the outage. */}
+                  {s.key === "err" && s.alt && (
+                    <path
+                      d={fillBetween(s.data, s.alt.data, hi)}
+                      fill={s.alt.color}
+                      opacity={0.09}
+                      stroke="none"
+                    />
+                  )}
                   <path
                     d={linePath(s.data, hi)}
                     fill="none"
@@ -213,6 +293,26 @@ export function ChartsPanel({ replay }: { replay: Replay }) {
                     strokeWidth="1.5"
                     vectorEffect="non-scaling-stroke"
                   />
+                  {s.alt && (
+                    <path
+                      d={linePath(s.alt.data, hi)}
+                      fill="none"
+                      stroke={s.alt.color}
+                      strokeWidth="1.5"
+                      strokeDasharray={s.alt.dash}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
+                  {s.alt2 && (
+                    <path
+                      d={linePath(s.alt2.data, hi)}
+                      fill="none"
+                      stroke={s.alt2.color}
+                      strokeWidth="1.5"
+                      strokeDasharray={s.alt2.dash}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
                   {cursorI >= 0 && cursorI < n && (
                     <line
                       x1={toX(cursorI)}
@@ -251,6 +351,36 @@ function quantile(src: number[], q: number): number {
   const pos = (a.length - 1) * q;
   const lo = Math.floor(pos), hi = Math.ceil(pos);
   return a[lo] + (a[hi] - a[lo]) * (pos - lo);
+}
+
+/** Closed path between two curves (forward over `a`, back over `b`). */
+function fillBetween(
+  a: (number | null)[],
+  b: (number | null)[],
+  hi: number,
+): string {
+  const n = Math.min(a.length, b.length);
+  let d = "";
+  const xy = (v: number | null, i: number) =>
+    v == null || !Number.isFinite(v)
+      ? null
+      : `${((i / Math.max(1, n - 1)) * W).toFixed(1)},${yOf(v, hi).toFixed(1)}`;
+  // forward along a
+  let pen = false;
+  for (let i = 0; i < n; i++) {
+    const p = xy(a[i], i);
+    if (!p) { pen = false; continue; }
+    d += `${pen ? "L" : "M"}${p} `;
+    pen = true;
+  }
+ // back along b
+  const rev: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const p = xy(b[i], i);
+    if (p) rev.push(p);
+  }
+  if (rev.length) d += `L${rev.join(" L")} Z`;
+  return d;
 }
 
 function linePath(data: (number | null)[], hi: number): string {

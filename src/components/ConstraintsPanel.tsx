@@ -12,7 +12,7 @@ export function ConstraintsPanel({
   source,
 }: {
   snapshot: Snapshot;
-  source: "synthetic" | "iovnbd";
+  source: "synthetic" | "iovnbd" | "byod";
 }) {
   const rows: FilterRow[] = [
     {

@@ -19,6 +19,10 @@ __pycache__/
 04_SENSOR_PHYSICS_CALIBRATION_AND_COORDINATE_FRAMES (1).md
 Team-Recalibrate-SIH2026-IDEA-Presentation (1).pptx
 
+# stale Sept-10 demo exports (unreferenced by code; superseded by frozen
+# metrics in public/data/ — keep locally, keep out of the submission repo)
+legacy/
+
 # field-guide working files (local only, never commit)
 docs/handover.md
 docs/decisions.md

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -71,6 +71,22 @@ export default function App() {
     [notice, setNotice] = useState(""),
     [judge, setJudge] = useState(false),
     [palette, setPalette] = useState(false);
+  // BYOD file input (hidden; triggered from the scenario modal + palette)
+  const byodInput = useRef<HTMLInputElement | null>(null);
+  const onByodFile = (file: File) => {
+    file.text().then((txt) => {
+      try {
+        const res = replay.loadByod(JSON.parse(txt));
+        setNotice(res.ok ? "Capture loaded — navigating your drive." : res.error ?? "Load failed.");
+        if (res.ok) {
+          setModal(null);
+          setView("navigate");
+        }
+      } catch {
+        setNotice("Not valid JSON — is that a capture file?");
+      }
+    });
+  };
   const stages = useMemo(() => judgeStages(replay.run), [replay.run]);
   const callout = judge ? judgeCalloutAt(stages, replay.t) : null;
   useEffect(() => {
@@ -85,6 +101,21 @@ export default function App() {
     const id = setTimeout(() => setNotice(""), 3200);
     return () => clearTimeout(id);
   }, [notice]);
+  // buffy: live tab title — during outage the tab itself reads GNSS DENIED.
+  // Small tell, but it makes screen-share recordings look like a real product.
+  useEffect(() => {
+    const s = replay.snapshot;
+    const st = s?.state;
+    document.title =
+      st === "DENIED"
+        ? "⚠ GNSS DENIED — AstraNav-IDR"
+        : st === "DEGRADED"
+          ? "GNSS DEGRADED — AstraNav-IDR"
+          : "AstraNav-IDR — Team Recalibrate";
+    return () => {
+      document.title = "AstraNav-IDR — Team Recalibrate";
+    };
+  }, [replay.snapshot?.state]);
   const configure = (patch: Parameters<typeof replay.configure>[0]) => {
     replay.configure(patch);
     setJudge(false);
@@ -164,6 +195,11 @@ export default function App() {
                 <i />
                 MODE: IO-VNBD REPLAY · REAL DATA
               </span>
+            ) : replay.source === "byod" ? (
+              <span className="simulation-tag iovnbd">
+                <i />
+                MODE: OWN DRIVE · GPS-REFERENCED · LIVE FILTER
+              </span>
             ) : (
               <span className="simulation-tag">
                 <i />
@@ -193,17 +229,34 @@ export default function App() {
                           : "Built around trust."}
               </h1>
               <p>
-                {view === "navigate"
-                  ? "Follow the journey. Understand the confidence."
-                  : view === "lab"
-                    ? "Introduce a failure. Inspect how the system responds."
-                    : view === "evidence"
-                      ? "A transparent view of what this simulation actually measures."
-                      : view === "calibration"
-                        ? "Phone-to-vehicle frame alignment and sensor bias."
-                        : view === "experiments"
-                          ? "Compare all 5 IO-VNBD segments. No estimator wins every time."
-                          : "Explore the pipeline from sensor observations to navigation."}
+                {view === "navigate" && replay.t > 0
+                  ? // N3 (Antigravity audit): live one-liner replaces the static
+                    // tagline while a run is underway — bound, GNSS state, and
+                    // time to outage/reacquisition, all from real snapshot data.
+                    `±${replay.snapshot.bound.toFixed(0)} m bound · ${
+                      replay.snapshot.state === "DENIED"
+                        ? "GNSS DENIED — dead reckoning"
+                        : replay.snapshot.state === "DEGRADED"
+                          ? "GNSS degraded"
+                          : "TRUSTED GNSS"
+                    } · ${
+                      replay.t < replay.run.scenario.start
+                        ? `outage in ${Math.max(0, Math.round(replay.run.scenario.start - replay.t))} s`
+                        : replay.t < replay.run.scenario.start + replay.run.config.blackout
+                          ? `reacquisition in ${Math.max(0, Math.round(replay.run.scenario.start + replay.run.config.blackout - replay.t))} s`
+                          : "GNSS re-acquired"
+                    }`
+                  : view === "navigate"
+                    ? "Follow the journey. Understand the confidence."
+                    : view === "lab"
+                      ? "Introduce a failure. Inspect how the system responds."
+                      : view === "evidence"
+                        ? "A transparent view of what this simulation actually measures."
+                        : view === "calibration"
+                          ? "Phone-to-vehicle frame alignment and sensor bias."
+                          : view === "experiments"
+                            ? "Compare all 5 IO-VNBD segments. No estimator wins every time."
+                            : "Explore the pipeline from sensor observations to navigation."}
               </p>
             </div>
             <div className="heading-actions">
@@ -291,6 +344,7 @@ export default function App() {
                     <TrustPanel
                       snapshot={replay.snapshot}
                       iovnbd={replay.run.iovnbd}
+                      run={replay.run}
                     />
                     <ConstraintsPanel
                       snapshot={replay.snapshot}
@@ -339,6 +393,18 @@ export default function App() {
           </footer>
         </main>
       </div>
+      {/* buffy: hidden BYOD capture loader */}
+      <input
+        ref={byodInput}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onByodFile(f);
+          e.target.value = ""; // allow re-loading the same file
+        }}
+      />
       {notice && (
         <div className="toast" role="status">
           <Check size={17} />
@@ -372,6 +438,20 @@ export default function App() {
               >
                 <strong>IO-VNBD REPLAY</strong>
                 <small>Real benchmark data · UK drives · 10 Hz</small>
+              </button>
+              {/* buffy: BYOD — Bring Your Own Drive. Loads a capture made on
+                  the judge's/team's own phone (public/byod.html) and runs the
+                  SAME live filter on it. Breadth answer to "where's the app?" */}
+              <button
+                className={replay.source === "byod" ? "active" : ""}
+                onClick={() => byodInput.current?.click()}
+              >
+                <strong>YOUR DRIVE (BYOD)</strong>
+                <small>
+                  {replay.byodLoaded
+                    ? "Capture loaded · your phone's sensors"
+                    : "Load a capture from byod.html"}
+                </small>
               </button>
             </div>
           )}

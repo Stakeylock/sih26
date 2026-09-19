@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { Activity, BrainCircuit, MapPinned, Navigation2, Satellite, ShieldCheck } from "lucide-react";
 import type { Run, Snapshot } from "../engine/types";
+import { reacquisitionStats } from "../engine/reacquisition";
 
 type CardState = "ok" | "degraded" | "denied" | "reacquiring" | "unavailable";
 
@@ -14,6 +16,19 @@ type TrustCard = {
 };
 
 function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
+  // REACQUISITION card is computed in TrustPanel (needs the whole run) and
+  // injected via prop — see <TrustPanel> below. Placeholder here to keep the
+  // card order stable; the real card replaces it by id at render time.
+  const reacqCard: TrustCard = {
+    id: "reacq",
+    icon: <Activity size={14} />,
+    label: "REACQUISITION",
+    statusWord: "STANDBY",
+    value: "—",
+    why: "Arms after the first outage in this run",
+    state: "unavailable",
+  };
+
   // GNSS TRUST
   const gnssState: CardState =
     snapshot.state === "TRUSTED"
@@ -200,17 +215,36 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
     state: healthState,
   };
 
-  return [gnssCard, imuCard, mlCard, alignCard, mapCard, healthCard];
+  return [gnssCard, imuCard, mlCard, alignCard, mapCard, healthCard, reacqCard];
 }
 
 export function TrustPanel({
   snapshot,
   iovnbd,
+  run,
 }: {
   snapshot: Snapshot;
   iovnbd?: Run["iovnbd"];
+  /** Full run — enables the reacquisition card once an outage has completed. */
+  run?: Run;
 }) {
-  const cards = deriveCards(snapshot, iovnbd);
+  // Reacquisition stats only make sense with the full epoch history; compute
+  // once per run (memoized), then upgrade the placeholder card if armed.
+  const reacq = useMemo(
+    () => (run ? reacquisitionStats(run.snapshots) : null),
+    [run],
+  );
+  const cards = deriveCards(snapshot, iovnbd).map((c) =>
+    c.id === "reacq" && reacq
+      ? {
+          ...c,
+          statusWord: reacq.timeToLock != null ? "RELOCKED" : "POST-FIX",
+          value: reacq.timeToLock != null ? `${reacq.timeToLock.toFixed(1)} s` : "—",
+          why: `Jump ${reacq.correctionJump?.toFixed(1) ?? "—"} m at relock · residual ${reacq.residualError?.toFixed(1) ?? "—"} m · pre-outage bound ${reacq.preBoundMedian?.toFixed(1) ?? "—"} m`,
+          state: reacq.timeToLock != null && reacq.timeToLock < 5 ? ("ok" as const) : ("degraded" as const),
+        }
+      : c,
+  );
 
   return (
     <div className="tp-grid">

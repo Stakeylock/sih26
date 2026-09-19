@@ -2,15 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { defaultConfig, scenarios } from "../engine/scenarios";
 import { simulate } from "../engine/simulation";
 import { buildIovnbdRun, iovnbdScenarios, loadIovnbd } from "../engine/iovnbd";
+import { buildByodRun, type ByodCapture } from "../engine/byod";
 import { computeExplainability } from "../engine/explain";
 import type { Config, FaultKind, Run, Scenario } from "../engine/types";
 
-export type SourceId = "synthetic" | "iovnbd";
+export type SourceId = "synthetic" | "iovnbd" | "byod";
 
 export function useReplay() {
   const [source, setSource] = useState<SourceId>("synthetic");
   const [iovReady, setIovReady] = useState(false);
   const [iovData, setIovData] = useState<Awaited<ReturnType<typeof loadIovnbd>>>(null);
+  const [byodCap, setByodCap] = useState<ByodCapture | null>(null);
   const [config, setConfig] = useState<Config>(defaultConfig);
   const [ablation, setAblation] = useState({
     useNHC: true,
@@ -44,10 +46,14 @@ export function useReplay() {
     if (source === "iovnbd" && iovData) {
       return buildIovnbdRun({ ...config, ...ablation }, iovData);
     }
+    if (source === "byod" && byodCap) {
+      return buildByodRun({ ...config, ...ablation }, byodCap);
+    }
     return simulate({ ...config, ...ablation });
-  }, [source, iovData, config, ablation]);
+  }, [source, iovData, byodCap, config, ablation]);
 
-  const activeScenarios: Scenario[] = source === "iovnbd" ? iovnbdList : scenarios;
+  const activeScenarios: Scenario[] =
+    source === "iovnbd" ? iovnbdList : scenarios;
 
   const clock = useRef(t);
   useEffect(() => {
@@ -112,11 +118,29 @@ export function useReplay() {
         scenario: scenarioId ?? iovnbdList[0].id,
         faults: [],
       }));
+    } else if (next === "byod") {
+      setConfig((old) => ({ ...old, scenario: "byod", faults: [] }));
     } else if (next === "synthetic") {
       setConfig((old) => ({ ...old, scenario: defaultConfig.scenario, faults: [] }));
     }
     seek(0);
     setPlaying(false);
+  };
+  /** BYOD: load a phone capture JSON (validated), switch to it, report errors. */
+  const loadByod = (cap: unknown): { ok: boolean; error?: string } => {
+    try {
+      const c = cap as ByodCapture;
+      if (c?.kind !== "astranav-byod" || !Array.isArray(c.imuWz) || c.imuWz.length < 100)
+        return { ok: false, error: "Not a valid AstraNav capture (too short or wrong kind)." };
+      setByodCap(c);
+      setSource("byod");
+      setConfig((old) => ({ ...old, scenario: "byod", faults: [] }));
+      seek(0);
+      setPlaying(false);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: `Could not parse capture: ${String(e)}` };
+    }
   };
   const snapshot = run.snapshots[Math.min(run.snapshots.length - 1, Math.round(t * 10))];
   const explainability = useMemo(
@@ -131,6 +155,8 @@ export function useReplay() {
     iovReady,
     iovnbdList,
     switchSource,
+    loadByod,
+    byodLoaded: !!byodCap,
     t,
     playing,
     speed,

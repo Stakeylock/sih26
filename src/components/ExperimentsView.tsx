@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight, Check, Dices } from "lucide-react";
 import type { Replay } from "../hooks/useReplay";
+import { runMonteCarlo, type MonteCarloResult } from "../engine/monte-carlo";
 
 type SegRow = {
   id: string;
@@ -61,6 +62,10 @@ function MetricCell({
 export function ExperimentsView({ replay }: { replay: Replay }) {
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
+  // Monte-Carlo seed-sweep state: undefined = never run, {running} = in flight.
+  const [mc, setMc] = useState<
+    { running: true } | { running: false; res: MonteCarloResult } | undefined
+  >(undefined);
 
   // Build rows from iovnbdList + any already-loaded run data
   // iovnbdList gives us name/id; actual metrics come from run.iovnbd when available.
@@ -258,6 +263,85 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
           </div>
         </div>
       )}
+
+      {/* buffy × Claude: Monte-Carlo robustness card (plan P3, scoped).
+          Answers the judge question "is your demo run just a lucky seed?"
+          by re-running the SAME config across independent seeds. Synthetic
+          simulator only — real-data robustness is the segment table above. */}
+      <div className="exp-mc">
+        <div className="exp-mc-head">
+          <span className="exp-mc-title">
+            <Dices size={15} /> ROBUSTNESS — SEED SWEEP
+          </span>
+          {replay.source === "synthetic" ? (
+            <button
+              className="button"
+              disabled={mc?.running}
+              onClick={() => {
+                setMc({ running: true });
+                // Deferred so the button paints its running state first.
+                setTimeout(() => {
+                  const res = runMonteCarlo(
+                    {
+                      scenario: replay.run.config.scenario,
+                      blackout: replay.run.config.blackout,
+                      learned: replay.run.config.learned,
+                      map: replay.run.config.map,
+                      faults: [],
+                    },
+                    { n: 12 },
+                  );
+                  setMc({ running: false, res });
+                }, 30);
+              }}
+            >
+              {mc?.running ? "Sweeping 12 seeds…" : "Run 12-seed sweep"}
+            </button>
+          ) : (
+            <span className="exp-mc-note">
+              Seed sweep applies to the synthetic simulator — real-data
+              robustness is the 5-segment table above.
+            </span>
+          )}
+        </div>
+        {mc && !mc.running && (
+          <div className="exp-mc-body">
+            <div className="exp-mc-stat">
+              <b>{Math.round(mc.res.winRate * 12)}/12</b>
+              <span>seeds where ours beat raw INS</span>
+            </div>
+            <svg
+              className="exp-mc-plot"
+              viewBox="0 0 360 96"
+              role="img"
+              aria-label={`Seed sweep dot plot: median INS ${mc.res.medianIns.toFixed(0)} m vs ours ${mc.res.medianOurs.toFixed(0)} m`}
+            >
+              {(() => {
+                const hi = Math.max(...mc.res.insFinal, ...mc.res.ekfFinal, 1);
+                const y = (v: number) => 88 - (v / hi) * 78;
+                return mc.res.insFinal.map((ins, i) => {
+                  const x = 14 + (i / 11) * 332;
+                  const ours = mc.res!.ekfFinal[i];
+                  const win = ours < ins;
+                  return (
+                    <g key={i}>
+                      <line x1={x} x2={x} y1={y(ins)} y2={y(ours)}
+                        stroke={win ? "var(--cyan)" : "var(--coral)"} strokeWidth="1" opacity={0.5} />
+                      <circle cx={x} cy={y(ins)} r="3" fill="var(--amber)" />
+                      <circle cx={x} cy={y(ours)} r="3" fill="var(--cyan)" />
+                    </g>
+                  );
+                });
+              })()}
+            </svg>
+            <div className="exp-mc-legend">
+              <span><i className="amber" /> INS median {mc.res.medianIns.toFixed(0)} m</span>
+              <span><i className="cyan" /> Ours median {mc.res.medianOurs.toFixed(0)} m</span>
+              <span>mean reduction {mc.res.meanReductionPct.toFixed(0)}% · {mc.res.ms.toFixed(0)} ms</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Protocol note */}
       <div className="exp-footer">
