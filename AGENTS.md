@@ -77,6 +77,9 @@ export function ChartsPanel({ run, t, onSeek }: {
 6. Experiments compare (pick two segments side-by-side table)
 
 ## LOG (append-only, newest first)
+- [13:55] Buffy: runtime verification PASSED — drove headless Chrome over CDP against BOTH localhost:4175 (dev) and :4173 (preview): all 10 tabs, NarrationBar, START DEMO badge, POSITION ERROR strip, Trust/REACQUISITION, Explainability all render. Both servers serve the new build. anav-verify.mjs kept in repo root as a self-check tool (untracked; delete anytime).
+- [13:45] Buffy: diagnosed Jini's "no UI changes" report — likely the persisted Basic/Expert toggle (astranav-basic-v2) hiding the expert stack, or stale browser session. Fixes: Basic mode now still shows the POSITION ERROR strip (new errorOnly prop on ChartsPanel — proof never hides), help modal gained an Expert-toggle tip. tsc 0, 70/70, build OK.
+- [11:40] Buffy: pulled 4e0f6b1 (Jini: BYOD hardening + counterfactual GNSS denial = worth-doing #1, favicon, NarrationBar). Clean fast-forward. Verified post-merge: tsc 0, 70/70 tests, build OK. UI commits b65635b/df434c0 now ON remote — teammates must re-pull to see them.
 
 - 2026-09-19 12:22 — Antigravity: **IO-VNBD ESTIMATOR ENU COORDINATE FRAME ALIGNMENT FIX**.
   (1) Diagnosed Disconnected Map Traces:

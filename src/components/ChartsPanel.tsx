@@ -33,7 +33,16 @@ type Series = {
   alt2?: { color: string; data: (number | null)[]; dash?: string };
 };
 
-export function ChartsPanel({ replay }: { replay: Replay }) {
+export function ChartsPanel({
+  replay,
+  errorOnly = false,
+}: {
+  replay: Replay;
+  /** Basic mode renders only the position-error strip — the proof must never
+   * be hidden by the Basic/Expert toggle (demo-safety: a judge or teammate in
+   * Basic mode still sees INS vs OURS divergence). */
+  errorOnly?: boolean;
+}) {
   const { run, t, seek } = replay;
   const [open, setOpen] = useState(true);
   const dragging = useRef(false);
@@ -189,7 +198,9 @@ export function ChartsPanel({ replay }: { replay: Replay }) {
 
   if (!run.snapshots.length) return null;
 
-  const { n, t0, tEnd, black, series } = model;
+  const { n, t0, tEnd, black, series: allSeries } = model;
+  // errorOnly: keep just the headline strip (index 0 is always errSeries)
+  const series = errorOnly ? [allSeries[0]] : allSeries;
   const toX = (i: number) => (i / Math.max(1, n - 1)) * W;
   const cursorI = Math.round(((t - t0) / Math.max(1e-6, tEnd - t0)) * (n - 1));
 

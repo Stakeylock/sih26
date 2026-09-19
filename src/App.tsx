@@ -345,6 +345,9 @@ export default function App() {
                   onExplain={() => setModal("help")}
                 />
                 <FallbackCard snapshot={replay.snapshot} />
+                {/* buffy: Basic mode keeps the money chart visible — the INS-vs-OURS
+                    proof must never be a casualty of the Basic/Expert toggle. */}
+                {basic && <ChartsPanel replay={replay} errorOnly />}
                 {!basic && (
                   <div className="expert-stack">
                     <TrustPanel
@@ -528,6 +531,12 @@ export default function App() {
           <p className="modal-intro">
             AstraNav-IDR explores how a phone can continue estimating vehicle
             motion when GNSS becomes unreliable.
+          </p>
+          {/* buffy: Jini reported "no changes visible" — root cause was the persisted
+              Basic/Expert toggle. Teach the escape hatch wherever we teach the app. */}
+          <p className="modal-intro" style={{ color: "var(--cyan, #6fd3e8)" }}>
+            Tip: use the <strong>Expert</strong> toggle (top-right) for telemetry
+            strips, trust diagnostics and the full evidence stack.
           </p>
           <div className="help-copy">
             <h3>Read the map</h3>
