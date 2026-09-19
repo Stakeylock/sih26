@@ -236,20 +236,40 @@ export function buildIovnbdRun(config: Config & { useNHC?: boolean; useZUPT?: bo
       })
     : null;
 
+  const pPreRef = { x: seg.refX[seg.pre] ?? 0, y: seg.refY[seg.pre] ?? 0 };
+  const pPreIns = { x: seg.insX[seg.pre] ?? 0, y: seg.insY[seg.pre] ?? 0 };
+  const pPreCls = { x: seg.clsX[seg.pre] ?? 0, y: seg.clsY[seg.pre] ?? 0 };
+  const pPreEkf = { x: seg.ekfX[seg.pre] ?? 0, y: seg.ekfY[seg.pre] ?? 0 };
+
   const snapshots: Snapshot[] = new Array(n);
   for (let i = 0; i < n; i++) {
     const t = i / 10;
     const st = stateAt(t, seg.pre / 10, seg.dur / 10, seg.post / 10);
     const gnssOn = seg.gpsX[i] != null && st !== "DENIED";
     const gnss: Snapshot["gnss"] = gnssOn ? { x: seg.gpsX[i]!, y: seg.gpsY[i]! } : null;
-    // per-sample errors of the offline benchmark branches (evidence display)
+
     const ref = { x: seg.refX[i] ?? 0, y: seg.refY[i] ?? 0 };
-    const errOf = (ax: number[], ay: number[]) =>
-      Math.hypot(ax[i] - ref.x, ay[i] - ref.y);
-    const errIns = errOf(seg.insX, seg.insY);
-    const errCls = errOf(seg.clsX, seg.clsY);
-    const errEkf = errOf(seg.ekfX, seg.ekfY);
-    const errLive = errOf(live.x, live.y);
+
+    // At and before blackout start (i <= seg.pre), benchmark branches align to the
+    // reference track. During blackout (i > seg.pre), they propagate relative to
+    // the last good fix with their respective dead-reckoning displacements.
+    const insPt = i <= seg.pre
+      ? ref
+      : { x: pPreRef.x + (seg.insX[i] - pPreIns.x), y: pPreRef.y + (seg.insY[i] - pPreIns.y) };
+    const clsPt = i <= seg.pre
+      ? ref
+      : { x: pPreRef.x + (seg.clsX[i] - pPreCls.x), y: pPreRef.y + (seg.clsY[i] - pPreCls.y) };
+    const ekfPt = i <= seg.pre
+      ? ref
+      : { x: pPreRef.x + (seg.ekfX[i] - pPreEkf.x), y: pPreRef.y + (seg.ekfY[i] - pPreEkf.y) };
+
+    const errOf = (pt: { x: number; y: number }) =>
+      Math.hypot(pt.x - ref.x, pt.y - ref.y);
+    const errIns = errOf(insPt);
+    const errCls = errOf(clsPt);
+    const errEkf = errOf(ekfPt);
+    const errLive = Math.hypot(live.x[i] - ref.x, live.y[i] - ref.y);
+
     // uncertainty bound = the LIVE filter's own 95% covariance bound
     const bound = live.bound[i];
     const speed = seg.ekfSpeed[i];
@@ -263,14 +283,14 @@ export function buildIovnbdRun(config: Config & { useNHC?: boolean; useZUPT?: bo
     snapshots[i] = {
       t,
       reference: ref,
-      ins: { x: seg.insX[i], y: seg.insY[i] },
-      ekf: { x: seg.ekfX[i], y: seg.ekfY[i] },
+      ins: insPt,
+      ekf: ekfPt,
       // map-assisted output: Viterbi-snapped live track when route matching is
       // enabled; otherwise equals the offline EKF estimate (no road network)
       map: viterbiRes
         ? viterbiRes.matched[i]
-        : { x: seg.ekfX[i], y: seg.ekfY[i] },
-      classical: { x: seg.clsX[i], y: seg.clsY[i] },
+        : ekfPt,
+      classical: clsPt,
       // live in-browser ES-EKF on recorded channels: separate trace + the
       // integrity bound shown on the map is THIS filter's own covariance
       live: { x: live.x[i], y: live.y[i] },

@@ -1,9 +1,11 @@
-import { Activity, Move3d, Satellite, Zap, SlidersHorizontal } from "lucide-react";
+import { useState } from "react";
+import { Activity, Move3d, Satellite, Zap, ShieldAlert, CheckCircle2 } from "lucide-react";
 import type { Replay } from "../hooks/useReplay";
 import type { FaultKind, Config } from "../engine/types";
 import { timeLabel } from "../engine/geometry";
 import { Toggle } from "./ui";
 export function ReplayLab({ replay }: { replay: Replay }) {
+  const [selectedDuration, setSelectedDuration] = useState(30);
   const faults = [
     {
       id: "gnss",
@@ -42,34 +44,118 @@ export function ReplayLab({ replay }: { replay: Replay }) {
   return (
     <div className="lab-layout">
       <section className="lab-config">
-        <div className="section-label">CONTROLLED EXPERIMENT</div>
-        <h2>Challenge the estimate.</h2>
-        <p>
-          Inject a fault at the current timestamp. The replay stays reproducible
-          when you seek back.
-        </p>
-        <div className="fault-grid">
-          {faults.map((f) => (
-            <button
-              key={f.id}
-              disabled={
-                replay.t >= 110 ||
-                (f.id === "gnss" && replay.snapshot.state === "DENIED")
-              }
-              title={
-                f.id === "gnss" && replay.snapshot.state === "DENIED"
-                  ? "No GNSS fixes are available to corrupt during a blackout."
-                  : `Inject ${f.name} at ${timeLabel(replay.t)}`
-              }
-              onClick={() => replay.inject(f.id as FaultKind)}
-            >
-              <f.icon size={19} />
-              <strong>{f.name}</strong>
-              <small>{f.detail}</small>
-              <span>Inject now ↗</span>
-            </button>
-          ))}
+        <div className="section-label">
+          {replay.source === "byod" ? "OWN DRIVE EXPERIMENT" : "CONTROLLED EXPERIMENT"}
         </div>
+        <h2>{replay.source === "byod" ? "Test GNSS denial." : "Challenge the estimate."}</h2>
+        <p>
+          {replay.source === "byod"
+            ? "Simulate satellite blackout at any timestamp of your own phone drive. Evaluates dead reckoning against the hidden reference GPS."
+            : "Inject a fault at the current timestamp. The replay stays reproducible when you seek back."}
+        </p>
+        {replay.source === "byod" ? (
+          <div className="byod-cf-card" data-testid="byod-cf-card">
+            <div className="cf-header">
+              <ShieldAlert size={18} className="cf-icon" />
+              <div>
+                <strong>WHAT IF GPS DISAPPEARED HERE?</strong>
+                <p>Artificially remove all satellite aiding from the estimator starting at the current playback position.</p>
+              </div>
+            </div>
+
+            {replay.byodHealth?.counterfactualEligible !== false ? (
+              <div className="cf-body">
+                <div className="cf-presets-row">
+                  <span className="cf-label">Outage duration:</span>
+                  {[10, 30, 60].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`cf-preset-pill ${selectedDuration === s ? "active" : ""}`}
+                      onClick={() => setSelectedDuration(s)}
+                    >
+                      {s} s
+                    </button>
+                  ))}
+                  <label className="cf-custom-label">
+                    <span>Custom:</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max={Math.max(10, Math.floor(replay.run.duration - 2))}
+                      value={selectedDuration}
+                      onChange={(e) => setSelectedDuration(Math.max(1, +e.target.value))}
+                    />
+                  </label>
+                </div>
+
+                <div className="cf-actions-row">
+                  {replay.isCounterfactual ? (
+                    <button
+                      type="button"
+                      className="button stop cf-main-btn"
+                      onClick={() => replay.applyByodCounterfactual(null)}
+                    >
+                      RESTORE FULL GNSS
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button primary cf-main-btn"
+                      disabled={replay.t >= replay.run.duration - 5}
+                      onClick={() =>
+                        replay.applyByodCounterfactual({
+                          outageStart: Math.floor(replay.t),
+                          outageDuration: selectedDuration,
+                        })
+                      }
+                    >
+                      LOSE GNSS AT {timeLabel(replay.t)}
+                    </button>
+                  )}
+                  {replay.isCounterfactual && (
+                    <span className="cf-status-tag">
+                      <CheckCircle2 size={13} />
+                      Outage: {timeLabel(replay.byodCounterfactual!.outageStart)} →{" "}
+                      {timeLabel(replay.byodCounterfactual!.outageStart + replay.byodCounterfactual!.outageDuration)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="cf-ineligible-box">
+                <strong>Counterfactual unavailable for this capture</strong>
+                <p>
+                  This capture predates full 3-axis accelerometer recording.
+                  Record a new drive with Capture v2 on <code>/byod.html</code> to enable counterfactual blackout testing.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="fault-grid">
+            {faults.map((f) => (
+              <button
+                key={f.id}
+                disabled={
+                  replay.t >= 110 ||
+                  (f.id === "gnss" && replay.snapshot.state === "DENIED")
+                }
+                title={
+                  f.id === "gnss" && replay.snapshot.state === "DENIED"
+                    ? "No GNSS fixes are available to corrupt during a blackout."
+                    : `Inject ${f.name} at ${timeLabel(replay.t)}`
+                }
+                onClick={() => replay.inject(f.id as FaultKind)}
+              >
+                <f.icon size={19} />
+                <strong>{f.name}</strong>
+                <small>{f.detail}</small>
+                <span>Inject now ↗</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="config-aids">
           <Toggle
             label="ML virtual odometer"

@@ -126,9 +126,13 @@ export function Evidence({ replay }: { replay: Replay }) {
       <div className="section-header">
         <div>
           <span className="section-label">
-            {replay.run.source === "iovnbd"
-              ? "MEASURED ON REAL IO-VNBD DATA"
-              : "MEASURED WITHIN THIS SIMULATION"}
+            {replay.run.source === "byod"
+              ? replay.isCounterfactual
+                ? "COUNTERFACTUAL EXPERIMENT · OWN DRIVE"
+                : "MEASURED ON YOUR OWN PHONE DRIVE"
+              : replay.run.source === "iovnbd"
+                ? "MEASURED ON REAL IO-VNBD DATA"
+                : "MEASURED WITHIN THIS SIMULATION"}
           </span>
           <h2>Trace every branch.</h2>
           <p>
@@ -170,7 +174,72 @@ export function Evidence({ replay }: { replay: Replay }) {
           </button>
         </div>
       </div>
-      {replay.run.iovnbd && (
+      {replay.run.source === "byod" ? (
+        <section className="iov-benchmark" data-testid="byod-benchmark">
+          <div className="iov-benchmark-head">
+            <h3>{replay.isCounterfactual ? "COUNTERFACTUAL OWN-DRIVE ANALYSIS" : "OWN-DRIVE SENSOR ANALYSIS"}</h3>
+            <small>
+              {replay.isCounterfactual
+                ? `Outage: ${replay.byodCounterfactual?.outageDuration}s at t+${replay.byodCounterfactual?.outageStart}s · ${replay.snapshot.distance.toFixed(0)} m inside denial`
+                : `Recorded real-world phone drive · ${(replay.run.byod?.duration ?? replay.run.duration).toFixed(0)}s total duration`}
+            </small>
+          </div>
+          {replay.isCounterfactual && (
+            <div className="byod-cf-summary" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", margin: "14px 0" }}>
+              <div className="metric" style={{ background: "#132328", padding: "10px 14px", borderRadius: "6px" }}>
+                <span style={{ fontSize: "11px", color: "#84959b" }}>ESTIMATOR DEVIATION VS RECORDED GPS</span>
+                <strong style={{ fontSize: "18px", color: "#6fd3e8" }}>
+                  {replay.run.byod?.counterfactual?.deviationM != null
+                    ? `${replay.run.byod.counterfactual.deviationM.toFixed(1)} m`
+                    : "—"}
+                </strong>
+                <small style={{ fontSize: "11px", color: "#84959b" }}>Measured at end of record</small>
+              </div>
+              <div className="metric" style={{ background: "#132328", padding: "10px 14px", borderRadius: "6px" }}>
+                <span style={{ fontSize: "11px", color: "#84959b" }}>REACQUISITION RELOCK TIME</span>
+                <strong style={{ fontSize: "18px", color: "#7ef0c0" }}>
+                  {replay.run.byod?.counterfactual?.timeToLock != null
+                    ? `${replay.run.byod.counterfactual.timeToLock.toFixed(1)} s`
+                    : "—"}
+                </strong>
+                <small style={{ fontSize: "11px", color: "#84959b" }}>Time to recover 95% bound</small>
+              </div>
+              <div className="metric" style={{ background: "#132328", padding: "10px 14px", borderRadius: "6px" }}>
+                <span style={{ fontSize: "11px", color: "#84959b" }}>RELOCK CORRECTION JUMP</span>
+                <strong style={{ fontSize: "18px", color: "#e8b664" }}>
+                  {replay.run.byod?.counterfactual?.correctionJump != null
+                    ? `${replay.run.byod.counterfactual.correctionJump.toFixed(1)} m`
+                    : "—"}
+                </strong>
+                <small style={{ fontSize: "11px", color: "#84959b" }}>Snap on first accepted fix</small>
+              </div>
+            </div>
+          )}
+          <div className="iov-calib">
+            <span>
+              <small>GYRO BIAS</small>
+              {replay.run.iovnbd?.calib.gyroBias.toFixed(4)} rad/s
+            </span>
+            <span>
+              <small>HEADING OFFSET</small>
+              {replay.run.iovnbd?.calib.headingOffset.toFixed(1)}°
+            </span>
+            <span>
+              <small>INIT HEADING</small>
+              {replay.run.iovnbd?.calib.initialHeading.toFixed(1)}°
+            </span>
+            <span>
+              <small>INIT SPEED</small>
+              {replay.run.iovnbd?.calib.initialSpeed.toFixed(1)} m/s
+            </span>
+          </div>
+          <small className="iov-note">
+            The original phone GNSS track is used strictly as an evaluation reference for this
+            counterfactual replay and is not survey-grade ground truth.
+            Satellite measurements were algorithmically masked from the navigation estimator during the outage window.
+          </small>
+        </section>
+      ) : replay.run.iovnbd ? (
         <section className="iov-benchmark" data-testid="iov-benchmark">
           <div className="iov-benchmark-head">
             <h3>REAL-DATA BENCHMARK · IO-VNBD</h3>
@@ -254,7 +323,7 @@ export function Evidence({ replay }: { replay: Replay }) {
             selection under integrity rules is the research question.
           </small>
         </section>
-      )}
+      ) : null}
       <div className="metric-grid">
         <Metric
           label={replay.run.source === "iovnbd" ? "Ours final error (live)" : "ES-EKF final error"}
@@ -408,7 +477,22 @@ export function Evidence({ replay }: { replay: Replay }) {
             </p>
           )}
         </section>
-        {replay.run.iovnbd ? (
+        {replay.run.source === "byod" ? (
+          <section>
+            <h3>
+              Provenance <ArrowUpRight size={15} />
+            </h3>
+            <p>
+              Dataset: Own-device phone sensor capture.
+              Recorded {replay.run.byod?.capturedAt ? new Date(replay.run.byod.capturedAt).toLocaleString() : "today"}.
+              Navigating via live client-side 15-state ES-EKF with stationary bias self-calibration.
+              {replay.isCounterfactual
+                ? " Full GNSS denial simulated counterfactually: satellite aiding removed from estimator, recorded phone GPS track hidden as reference."
+                : " Continuous real-world drive replay on phone IMU + GPS."}
+            </p>
+            <span className="outline-tag">OWN-DRIVE EVIDENCE</span>
+          </section>
+        ) : replay.run.iovnbd ? (
           <section>
             <h3>
               Provenance <ArrowUpRight size={15} />

@@ -12,7 +12,7 @@ AstraNav-IDR demonstrates robust dead reckoning when GNSS becomes degraded or de
 # Install dependencies
 npm install
 
-# Run Vitest test suite (41 unit & integration tests)
+# Run complete Vitest test suite
 npm test
 
 # Build production bundle and run TypeScript typecheck
@@ -87,14 +87,22 @@ AstraNav-IDR is evaluated on the open-access **IO-VNBD** (Input-Output Vehicle N
    - Combines $2\sigma$-style covariance envelope with an SBAS-inspired systematic-heading protection bound ($\bar{v} \cdot \psi_{\text{sys}} \cdot \tau$).
    - Provides an honest, growing uncertainty boundary throughout the blackout window.
 
+## Bring Your Own Drive (BYOD) & Counterfactual Outage
+
+AstraNav-IDR supports real-world phone sensor streams via **Bring Your Own Drive (BYOD)**:
+1. **Sensor Capture (`/byod.html`):** A standalone web capture page running on any phone records device motion (3-axis accelerometer and gyroscope) and high-accuracy GPS fixes locally.
+2. **On-Device Replay:** Sensor captures load into AstraNav, where the in-browser 15-state ES-EKF self-calibrates gyro biases and navigates the user's own physical sensor stream.
+3. **Counterfactual GNSS Outage:** Users can inject an algorithmic satellite blackout at any timestamp of their drive. Satellite position, speed, and course are completely masked from the estimator; the recorded phone GPS track is retained **strictly as a hidden evaluation reference**.
+4. **Seamless Reacquisition:** When fixes return, the estimator validates measurement innovations against the $\chi^2$ gate across multiple consecutive epochs before restoring full trust, measuring relock time and correction jump.
+
 ---
 
 ## Application Navigation & Features
 
 The web console provides **10 dedicated views**:
 - **Navigate:** Real-time map replay (2σ covariance ellipse, INS/Classical/EKF/Route-match trails, GNSS fix status).
-- **Replay Lab:** Interactive fault injection (GNSS jumps, potholes, mount rotation, bad speed) and live ablation toggles (NHC, ZUPT, ML speed, GNSS gate).
-- **Evidence:** Quantitative blackout benchmarks, drift percentages, and run export (JSON/CSV).
+- **Replay Lab:** Interactive fault injection (GNSS jumps, potholes, mount rotation, bad speed) and live ablation toggles (NHC, ZUPT, ML speed, GNSS gate) plus counterfactual outage controls.
+- **Evidence:** Quantitative blackout benchmarks, drift percentages, and run export (JSON/CSV, Judge Report).
 - **Architecture:** Interactive pipeline diagram detailing stage responsibilities.
 - **Calibration:** Live gyro bias and magnetometer alignment gauges.
 - **Experiments:** Segment-by-segment comparison across estimators.
@@ -112,10 +120,13 @@ Keyboard shortcuts:
 
 ## Verification & Test Suite
 
-The repository includes **41 automated Vitest tests** covering:
-- `src/esekf.test.ts` (10 tests): ES-EKF propagation, quaternion kinematics, 2D GNSS update, NIS outlier rejection, NHC lateral suppression, ZUPT covariance collapse, and ZARU gyro bias observability.
-- `src/simulation.test.ts` (13 tests): Deterministic replay, 10s/30s/60s blackout parameterized scenarios, fault injection, reacquisition hysteresis, and zero-distance handling.
-- `src/engine/mapmatch.test.ts` (7 tests): Monotonic cumulative distance $s$, candidate generation, Viterbi path recovery, lateral error correction, outlier robustness, and turn tolerance.
-- `src/engine/runlog.test.ts` (11 tests): Run serialization, persistence cap, schema validation, and deletion.
-
 Continuous Integration is enforced via GitHub Actions on every push and PR (`.github/workflows/ci.yml`).
+The Vitest automated test suite covers:
+- `src/esekf.test.ts`: ES-EKF propagation, quaternion kinematics, 2D GNSS update, NIS outlier rejection, NHC lateral suppression, ZUPT covariance collapse, and ZARU gyro bias observability.
+- `src/simulation.test.ts`: Deterministic replay, 10s/30s/60s blackout parameterized scenarios, fault injection, reacquisition hysteresis, and zero-distance handling.
+- `src/engine/mapmatch.test.ts`: Monotonic cumulative distance $s$, candidate generation, Viterbi path recovery, lateral error correction, outlier robustness, and turn tolerance.
+- `src/engine/runlog.test.ts`: Run serialization, persistence cap, schema validation, and deletion.
+- `src/engine/export.test.ts`: Judge Report HTML generator, XSS escaping, limitations block, CSV columns, and provenance tags.
+- `src/engine/monte-carlo.test.ts`: Monte-Carlo parameter perturbation sweeps and distribution convergence.
+- `src/engine/sensitivity.test.ts`: GNSS NIS gate sensitivity on corrupted fixes.
+- `src/engine/byod.test.ts`: BYOD capture v1/v2 ingest, preflight health validator, counterfactual GNSS masking, leakage invariance invariant, speed isolation, and reacquisition progression.

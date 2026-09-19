@@ -177,9 +177,13 @@ export function runLiveEskf(ch: LiveChannels, ablation?: { useNHC?: boolean; use
   const wzSign = gyroTrusted ? (cSign > 0 ? 1 : -1) : 0;
   if (!gyroTrusted) cfg.gyroNoise = 0.06; // distrust gyro rate, lean on compass
 
-  // --- initial state from calibration
+  // --- initial state from calibration & first valid fix/reference
+  const refX0 = ch.refXs?.find((v) => v != null && Number.isFinite(v)) ?? 0;
+  const refY0 = ch.refYs?.find((v) => v != null && Number.isFinite(v)) ?? 0;
+  const initX = ch.gpsX.find((v) => v != null && Number.isFinite(v)) ?? refX0;
+  const initY = ch.gpsY.find((v) => v != null && Number.isFinite(v)) ?? refY0;
   const yaw0 = (90 - ch.initialHeading) * D2R; // compass -> ENU yaw
-  const st = initEskf([0, 0, 0], [ch.initialSpeed * Math.cos(yaw0), ch.initialSpeed * Math.sin(yaw0), 0], yaw0, cfg);
+  const st = initEskf([initX, initY, 0], [ch.initialSpeed * Math.cos(yaw0), ch.initialSpeed * Math.sin(yaw0), 0], yaw0, cfg);
   // In-car magnetometer systematics (body distortions, electronics) wander
   // slowly by tens of degrees; a fixed per-sample σ would claim unreal
   // confidence. Model them as a yaw random walk (~1.7°/√s) — this is what
@@ -335,12 +339,15 @@ export function runLiveEskf(ch: LiveChannels, ablation?: { useNHC?: boolean; use
   // --- live blackout error, same protocol as the offline benchmark:
   // re-reference every estimator to its own position at blackout start.
   const p0x = x[ch.pre], p0y = y[ch.pre];
-  const r0x = ch.refXs[ch.pre] ?? 0, r0y = ch.refYs[ch.pre] ?? 0;
+  const r0x = ch.refXs ? (ch.refXs[ch.pre] ?? 0) : 0;
+  const r0y = ch.refYs ? (ch.refYs[ch.pre] ?? 0) : 0;
   let lastErr = 0;
-  for (let i = ch.pre; i < Math.min(ch.pre + ch.dur, n); i++) {
-    const rx = (ch.refXs[i] ?? r0x) - r0x;
-    const ry = (ch.refYs[i] ?? r0y) - r0y;
-    lastErr = Math.hypot(x[i] - p0x - rx, y[i] - p0y - ry);
+  if (ch.refXs && ch.refYs) {
+    for (let i = ch.pre; i < Math.min(ch.pre + ch.dur, n); i++) {
+      const rx = (ch.refXs[i] ?? r0x) - r0x;
+      const ry = (ch.refYs[i] ?? r0y) - r0y;
+      lastErr = Math.hypot(x[i] - p0x - rx, y[i] - p0y - ry);
+    }
   }
 
   return {

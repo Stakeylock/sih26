@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#0d1518"/>
+  <!-- Outer integrity ring with dashed outline -->
+  <circle cx="32" cy="32" r="24" fill="none" stroke="#22363d" stroke-width="2" />
+  <circle cx="32" cy="32" r="24" fill="none" stroke="#7ef0c0" stroke-width="2" stroke-dasharray="24 16" opacity="0.85" />
+  <!-- Central navigational arrow -->
+  <path d="M32 12 L47 48 L32 40 L17 48 Z" fill="#6fd3e8" stroke="#0d1518" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- Core anchor dot -->
+  <circle cx="32" cy="32" r="3.5" fill="#b6e388" />
+</svg>

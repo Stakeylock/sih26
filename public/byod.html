@@ -19,6 +19,9 @@
     border: 1px solid #223236; border-radius: 8px;
     padding: 14px 16px; margin-bottom: 12px; background: #101a1d;
   }
+  .card.alert {
+    border-color: #f49484; background: #231417; color: #f9d5ce;
+  }
   .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
   .row .k { color: #84959a; font-size: 12px; letter-spacing: .8px; }
   .row .v { font-variant-numeric: tabular-nums; font-family: Consolas, monospace; }
@@ -37,26 +40,31 @@
     background: #223236; color: #84959a;
   }
   .pill.rec { background: #3a1d1d; color: #f49484; animation: blink 1.2s infinite; }
+  .pill.warn { background: #3d2f16; color: #f6c065; }
   @keyframes blink { 50% { opacity: .55; } }
-  .note { font-size: 11.5px; color: #84959a; margin-top: 8px; }
+  .note { font-size: 11.5px; color: #84959a; margin-top: 8px; line-height: 1.45; }
   .bar { height: 4px; background: #223236; border-radius: 2px; overflow: hidden; margin-top: 10px; }
   .bar i { display: block; height: 100%; background: #b6e388; width: 0%; transition: width .3s; }
 </style>
 </head>
 <body>
-  <h1>AstraNav<b>IDR</b> · Sensor Capture</h1>
-  <p class="sub">Bring Your Own Drive — record your phone's sensors, navigate them in the console. All processing on-device; nothing leaves the phone.</p>
+  <h1>AstraNav<b>IDR</b> · Sensor Capture v2</h1>
+  <p class="sub">Bring Your Own Drive — record phone IMU (accel + gyro) & GPS for live in-browser dead reckoning and counterfactual GNSS outage testing. On-device only.</p>
+
+  <div class="card" id="sensorAlert" style="display:none;"></div>
 
   <div class="card">
     <div class="row"><span class="k">STATUS</span><span class="v" id="status">IDLE <span class="pill">WAITING</span></span></div>
     <div class="row"><span class="k">ELAPSED</span><span class="v" id="elapsed">0:00</span></div>
-    <div class="row"><span class="k">SAMPLES</span><span class="v" id="samples">0</span></div>
+    <div class="row"><span class="k">MOTION SAMPLES</span><span class="v" id="samples">0</span></div>
+    <div class="row"><span class="k">ACCEL (X,Y,Z)</span><span class="v" id="accel">—</span></div>
+    <div class="row"><span class="k">GYRO (X,Y,Z)</span><span class="v" id="gyro">—</span></div>
     <div class="row"><span class="k">GPS FIX</span><span class="v" id="gps">—</span></div>
-    <div class="row"><span class="k">ACCURACY</span><span class="v" id="acc">—</span></div>
-    <div class="row"><span class="k">SPEED</span><span class="v" id="spd">—</span></div>
+    <div class="row"><span class="k">GPS ACCURACY</span><span class="v" id="acc">—</span></div>
+    <div class="row"><span class="k">GPS SPEED</span><span class="v" id="spd">—</span></div>
     <div class="row"><span class="k">HEADING</span><span class="v" id="hdg">—</span></div>
     <div class="bar"><i id="mem"></i></div>
-    <p class="note">Est. capture size <span id="size">~0 KB</span>. Keep the phone mounted or held steady; drive normally.</p>
+    <p class="note">Keep the phone firmly mounted or held steady; drive or walk normally. Recommended: 2–5 min.</p>
   </div>
 
   <button id="btn">START CAPTURE</button>
@@ -69,11 +77,16 @@
   const $ = (id) => document.getElementById(id);
   const state = {
     rec: false, t0: 0,
-    t: [], imuWz: [], yawPhone: [],
-    gpsLat: [], gpsLon: [], gpsAcc: [], gpsSpeed: [],
-    gpsT: [], // separate gps timeline (1 Hz-ish), merged on export
-    headingDeg: null, watchId: null, motionId: null, orientId: null,
-    lastYaw: null, yawAcc: 0,
+    // Motion channels
+    t: [],
+    ax: [], ay: [], az: [],
+    axG: [], ayG: [], azG: [],
+    gx: [], gy: [], gz: [],
+    yaw: [], pitch: [], roll: [],
+    // GNSS timeline
+    gpsT: [], gpsLat: [], gpsLon: [], gpsAlt: [], gpsAcc: [], gpsSpeed: [], gpsHdg: [],
+    headingDeg: null, pitchDeg: null, rollDeg: null,
+    watchId: null, motionWatchdogTimer: null,
   };
 
   const fmtT = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
@@ -82,10 +95,8 @@
     if (!state.rec) return;
     const el = (performance.now() - state.t0) / 1000;
     $("elapsed").textContent = fmtT(el);
-    $("samples").textContent = state.imuWz.length.toLocaleString();
-    $("mem").style.width = Math.min(100, state.imuWz.length / 120) + "%"; // 2 min ≈ full
-    const kb = state.imuWz.length * 5 * 8 / 1024;
-    $("size").textContent = `~${Math.round(kb).toLocaleString()} KB`;
+    $("samples").textContent = state.t.length.toLocaleString();
+    $("mem").style.width = Math.min(100, state.t.length / 120) + "%";
     requestAnimationFrame(ui);
   }
 
@@ -94,24 +105,46 @@
   // --- sensors -----------------------------------------------------------
   function onMotion(e) {
     if (!state.rec) return;
-    const r = e.rotationRate;
-    if (r && r.alpha != null) {
-      // alpha = yaw-axis rate on most phones; deg/s → rad/s
-      state.imuWz.push(((r.alpha || 0) * Math.PI) / 180);
-      const now = (performance.now() - state.t0) / 1000;
-      // resample compass to the motion timeline
-      state.yawPhone.push(state.headingDeg ?? state.yawPhone[state.yawPhone.length-1] ?? 0);
-      state.t.push(now);
+    const now = (performance.now() - state.t0) / 1000;
+    const r = e.rotationRate || {};
+    const a = e.acceleration || {};
+    const ag = e.accelerationIncludingGravity || {};
+
+    // deg/s -> rad/s
+    const d2r = Math.PI / 180;
+    const gx = (r.beta || 0) * d2r;
+    const gy = (r.gamma || 0) * d2r;
+    const gz = (r.alpha || 0) * d2r;
+
+    state.t.push(now);
+    state.ax.push(a.x != null ? a.x : 0);
+    state.ay.push(a.y != null ? a.y : 0);
+    state.az.push(a.z != null ? a.z : 0);
+    state.axG.push(ag.x != null ? ag.x : 0);
+    state.ayG.push(ag.y != null ? ag.y : 0);
+    state.azG.push(ag.z != null ? ag.z : 0);
+    state.gx.push(gx);
+    state.gy.push(gy);
+    state.gz.push(gz);
+    state.yaw.push(state.headingDeg ?? 0);
+    state.pitch.push(state.pitchDeg ?? 0);
+    state.roll.push(state.rollDeg ?? 0);
+
+    // Live display updates
+    if (state.t.length % 5 === 0) {
+      $("accel").textContent = `${(a.x||0).toFixed(1)}, ${(a.y||0).toFixed(1)}, ${(a.z||0).toFixed(1)} m/s²`;
+      $("gyro").textContent = `${(r.alpha||0).toFixed(1)} °/s`;
     }
   }
 
   function onOrient(e) {
     if (e.alpha != null) {
-      // compass heading (0=N); webkitCompassHeading on iOS is truer
       const h = (typeof e.webkitCompassHeading === "number")
         ? e.webkitCompassHeading
         : (360 - e.alpha) % 360;
       state.headingDeg = h;
+      state.pitchDeg = e.beta ?? null;
+      state.rollDeg = e.gamma ?? null;
       if (state.rec) $("hdg").textContent = h.toFixed(0) + "°";
     }
   }
@@ -123,9 +156,12 @@
     $("spd").textContent = ((c.speed ?? 0) * 3.6).toFixed(1) + " km/h";
     if (!state.rec) return;
     state.gpsT.push((performance.now() - state.t0) / 1000);
-    state.gpsLat.push(c.latitude); state.gpsLon.push(c.longitude);
+    state.gpsLat.push(c.latitude);
+    state.gpsLon.push(c.longitude);
+    state.gpsAlt.push(c.altitude ?? null);
     state.gpsAcc.push(c.accuracy ?? null);
     state.gpsSpeed.push(c.speed ?? null);
+    state.gpsHdg.push(c.heading ?? null);
   }
 
   function gpsErr(e) {
@@ -135,42 +171,64 @@
   // --- start / stop ------------------------------------------------------
   async function start() {
     $("perm").textContent = "";
+    $("sensorAlert").style.display = "none";
+    setStatus('REQUESTING PERMISSIONS <span class="pill warn">WAIT</span>');
+
     // 1) permissions (iOS needs requestPermission on both APIs)
     try {
-      if (typeof DeviceMotionEvent !== "undefined" && DeviceMotionEvent.requestPermission) {
+      if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
         const p = await DeviceMotionEvent.requestPermission();
-        if (p !== "granted") throw new Error("motion permission denied");
+        if (p !== "granted") throw new Error("Motion permission denied");
       }
-      if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
+      if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
         await DeviceOrientationEvent.requestPermission();
       }
     } catch (err) {
       $("perm").innerHTML = '<span class="bad">Sensor permission: ' + err.message + "</span>";
+      setStatus('PERMISSION ERROR <span class="pill bad">ERROR</span>');
       return;
     }
-    // 2) GPS first (so the first fix anchors the timeline)
+
+    // 2) GPS
     if (!("geolocation" in navigator)) {
       $("perm").innerHTML = '<span class="bad">No geolocation on this device</span>';
+      setStatus('NO GEOLOCATION <span class="pill bad">ERROR</span>');
       return;
     }
+
+    setStatus('WAITING FOR SENSORS <span class="pill warn">WAIT</span>');
     state.watchId = navigator.geolocation.watchPosition(onGps, gpsErr, {
       enableHighAccuracy: true, maximumAge: 1000, timeout: 8000,
     });
 
     state.rec = true;
     state.t0 = performance.now();
-    state.motionId = window.addEventListener("devicemotion", onMotion, { passive: true });
-    state.orientId = window.addEventListener("deviceorientationabsolute", onOrient, true)
+    window.addEventListener("devicemotion", onMotion, { passive: true });
+    window.addEventListener("deviceorientationabsolute", onOrient, true)
       || window.addEventListener("deviceorientation", onOrient, true);
 
     $("btn").textContent = "STOP CAPTURE";
     $("btn").classList.add("stop");
     setStatus('RECORDING <span class="pill rec">● REC</span>');
     ui();
+
+    // Section 27: 2-second sensor watchdog
+    state.motionWatchdogTimer = setTimeout(() => {
+      if (state.rec && state.t.length === 0) {
+        $("sensorAlert").className = "card alert";
+        $("sensorAlert").style.display = "block";
+        $("sensorAlert").innerHTML = "<strong>MOTION SENSOR UNAVAILABLE</strong><br/>" +
+          "Your browser has not provided DeviceMotion data after 2 seconds.<br/>" +
+          "• Check site motion permissions in browser settings.<br/>" +
+          "• On Chrome/Safari, motion sensors require a secure HTTPS context.<br/>" +
+          "• You may continue for GPS-only or try opening under HTTPS.";
+      }
+    }, 2200);
   }
 
   function stop() {
     state.rec = false;
+    if (state.motionWatchdogTimer) clearTimeout(state.motionWatchdogTimer);
     navigator.geolocation.clearWatch(state.watchId);
     window.removeEventListener("devicemotion", onMotion);
     window.removeEventListener("deviceorientationabsolute", onOrient, true);
@@ -183,45 +241,85 @@
   }
 
   // --- export ------------------------------------------------------------
-  function mergeTo10Hz() {
-    // Build the engine's expected capture shape: resample GPS (its own
-    // timeline) onto the motion timeline epochs by nearest-sample hold.
-    const n = state.imuWz.length;
+  function buildExportV2() {
+    const n = state.t.length;
+    const lastT = n > 0 ? state.t[n - 1] : (state.gpsT[state.gpsT.length - 1] || 0);
+
+    // Merge GPS to motion timeline epochs by nearest sample
     const lat = new Array(n).fill(null), lon = new Array(n).fill(null),
-          acc = new Array(n).fill(null), spd = new Array(n).fill(null);
+          alt = new Array(n).fill(null), acc = new Array(n).fill(null),
+          spd = new Array(n).fill(null), hdg = new Array(n).fill(null);
     let j = 0;
     for (let i = 0; i < n; i++) {
       const tq = state.t[i];
       while (j + 1 < state.gpsT.length && state.gpsT[j + 1] <= tq) j++;
-      if (j < state.gpsT.length && Math.abs(state.gpsT[j] - tq) < 1.5) {
+      if (j < state.gpsT.length && Math.abs(state.gpsT[j] - tq) < 2.0) {
         lat[i] = state.gpsLat[j]; lon[i] = state.gpsLon[j];
-        acc[i] = state.gpsAcc[j]; spd[i] = state.gpsSpeed[j];
+        alt[i] = state.gpsAlt[j]; acc[i] = state.gpsAcc[j];
+        spd[i] = state.gpsSpeed[j]; hdg[i] = state.gpsHdg[j];
       }
     }
-    // origin = first valid fix
-    let lat0 = null, lon0 = null;
-    for (let i = 0; i < n; i++)
+
+    let lat0 = 0, lon0 = 0;
+    for (let i = 0; i < n; i++) {
       if (lat[i] != null) { lat0 = lat[i]; lon0 = lon[i]; break; }
-    if (lat0 == null) { lat0 = 0; lon0 = 0; }
+    }
+    if (lat0 === 0 && state.gpsLat.length > 0) {
+      lat0 = state.gpsLat[0]; lon0 = state.gpsLon[0];
+    }
+
+    const round3 = (x) => Math.round(x * 1000) / 1000;
+    const round4 = (x) => Math.round(x * 10000) / 10000;
+
     return {
-      kind: "astranav-byod", version: 1,
-      capturedAt: new Date(Date.now() - (state.t[n-1] || 0) * 1000).toISOString(),
-      rateHz: n / Math.max(1, state.t[n-1] || 1),
-      t: state.t.map((x) => Math.round(x * 1000) / 1000),
-      imuWz: state.imuWz.map((x) => Math.round(x * 1e4) / 1e4),
-      yawPhone: state.yawPhone.map((x) => Math.round(x * 10) / 10),
-      gpsLat: lat, gpsLon: lon, gpsAcc: acc, gpsSpeed: spd,
+      kind: "astranav-byod",
+      version: 2,
+      capturedAt: new Date().toISOString(),
+      rateHz: n / Math.max(1, lastT),
+      device: {
+        userAgent: navigator.userAgent || "Unknown",
+        platform: navigator.platform || "Unknown",
+      },
+      motion: {
+        t: state.t.map(round3),
+        ax: state.ax.map(round3),
+        ay: state.ay.map(round3),
+        az: state.az.map(round3),
+        axGravity: state.axG.map(round3),
+        ayGravity: state.ayG.map(round3),
+        azGravity: state.azG.map(round3),
+        gyroX: state.gx.map(round4),
+        gyroY: state.gy.map(round4),
+        gyroZ: state.gz.map(round4),
+        yaw: state.yaw.map((x) => Math.round(x * 10) / 10),
+        pitch: state.pitch.map((x) => Math.round(x * 10) / 10),
+        roll: state.roll.map((x) => Math.round(x * 10) / 10),
+      },
+      gnss: {
+        t: state.gpsT.map(round3),
+        lat: state.gpsLat,
+        lon: state.gpsLon,
+        altitude: state.gpsAlt,
+        accuracy: state.gpsAcc,
+        speed: state.gpsSpeed,
+        heading: state.gpsHdg,
+      },
       origin: { lat0, lon0 },
+      // Backward-compatible v1 fields for zero-friction fallback:
+      t: state.t.map(round3),
+      imuWz: state.gz.map(round4),
+      yawPhone: state.yaw.map((x) => Math.round(x * 10) / 10),
+      gpsLat: lat, gpsLon: lon, gpsAcc: acc, gpsSpeed: spd,
     };
   }
 
   $("btn").addEventListener("click", () => (state.rec ? stop() : start()));
   $("dl").addEventListener("click", () => {
-    const cap = mergeTo10Hz();
-    const blob = new Blob([JSON.stringify(cap)], { type: "application/json" });
+    const cap = buildExportV2();
+    const blob = new Blob([JSON.stringify(cap, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `astranav-byod-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+    a.download = `astranav-byod-v2-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   });

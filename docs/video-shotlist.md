@@ -47,8 +47,26 @@
     *   **On-Screen Action:** Show the Diagnostics view showing live step time (~0.1 ms) and sensor channel health.
     *   **Voiceover:** "Diagnostics confirms that our live filter step time is well under half a millisecond, proving the computational feasibility of running this core on embedded hardware."
 
-## 4. Honest Limits & Roadmap (3:30 - 4:00)
+## 4. Own-Phone Drive & Counterfactual GNSS Outage (3:30 - 4:30)
 
-*   **Timestamp:** 3:30 - 4:00
+*   **Timestamp:** 3:30 - 3:45
+    *   **On-Screen Action:** Show ordinary smartphone opening `/byod.html`. Demonstrate live sample counters, accelerometer xyz, and GPS fixes updating.
+    *   **Voiceover:** "This isn't benchmark data anymore. We captured this drive directly from an ordinary phone a few minutes ago."
+*   **Timestamp:** 3:45 - 4:00
+    *   **On-Screen Action:** Tap DOWNLOAD CAPTURE on the phone. In the AstraNav console, open Configure → YOUR DRIVE (BYOD) → Load Capture. The console switches to `MODE: OWN DRIVE · GPS-REFERENCED`.
+    *   **Voiceover:** "And we load that same recording into AstraNav. The live 15-state ES-EKF self-calibrates gyro bias and navigates our own sensor stream."
+*   **Timestamp:** 4:00 - 4:20
+    *   **On-Screen Action:** In Replay Lab, move the cursor to a straight section or turn. Select the "30 s" blackout preset and click "LOSE GNSS AT CURRENT TIME". Play replay through the blackout.
+    *   **Voiceover:** "Now we ask a counterfactual question: what if GNSS disappeared right here? All satellite position, speed, and course are removed from the estimator. The original GPS track remains only as a hidden reference for evaluation."
+*   **Timestamp:** 4:20 - 4:35
+    *   **On-Screen Action:** Show the Trust Panel during denial, then observe satellite return and the REACQUISITION card transitioning to RELOCKED with timeToLock and correction jump.
+    *   **Voiceover:** "AstraNav transitions to dead reckoning, propagates its integrity bound, and when GNSS returns, it verifies consistency across multiple epochs before restoring trust."
+*   **Timestamp:** 4:35 - 4:45
+    *   **On-Screen Action:** Click "Judge report" in Evidence to download the self-contained offline evidence HTML document.
+    *   **Voiceover:** "With a single click, judges can download the self-contained evidence report with complete mathematical provenance and honest limitations."
+
+## 5. Honest Limits & Roadmap (4:45 - 5:00)
+
+*   **Timestamp:** 4:45 - 5:00
     *   **On-Screen Action:** Return to the Architecture view highlighting production targets.
-    *   **Voiceover:** "To be completely transparent: today's prototype features a fully functioning live 15-state filter in the browser, verified by 41 automated tests. In this replay adapter, horizontal phone-accelerometer propagation is intentionally suppressed to reflect real smartphone sensor noise limits. Our roadmap forward includes native Android deployment in Kotlin with background sensor capture, compiled C++ edge mechanization, and full OpenStreetMap graph matching."
+    *   **Voiceover:** "To be completely transparent: today's prototype features a fully functioning live 15-state filter in the browser, verified by the automated Vitest test suite. In this replay adapter, horizontal phone-accelerometer propagation is intentionally suppressed to reflect real smartphone sensor noise limits. Our roadmap forward includes native Android deployment in Kotlin with background sensor capture, compiled C++ edge mechanization, and full OpenStreetMap graph matching."

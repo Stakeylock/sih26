@@ -120,11 +120,41 @@ export type Run = {
     /** Live in-browser ES-EKF result (runs on every build, real covariance). */
     live: { final: number; drift: number; gyroTrusted: boolean; wzSign: number };
   };
+  /** Present when source === "byod": own-drive capture and counterfactual metadata. */
+  byod?: {
+    captureId: string;
+    capturedAt: string;
+    duration: number;
+    rateHz: number;
+    version: number;
+    referenceType: "phone-gps";
+    device?: {
+      userAgent?: string;
+      platform?: string;
+      browser?: string;
+    };
+    health?: {
+      status: "PASS" | "WARN" | "FAIL";
+      motionRateHz: number;
+      gnssRateHz: number;
+      medianAccuracyM: number | null;
+      replayEligible: boolean;
+      counterfactualEligible: boolean;
+    };
+    counterfactual?: {
+      type: "gnss-blackout";
+      start: number;
+      duration: number;
+      deviationM?: number;
+      timeToLock?: number | null;
+      correctionJump?: number | null;
+    };
+  };
 };
 
 /** A replay data source: produces complete runs from a configuration. */
 export type ReplaySource = {
-  id: "synthetic" | "iovnbd";
+  id: "synthetic" | "iovnbd" | "byod";
   isAvailable: () => Promise<boolean> | boolean;
   /** List selectable runs (scenarios for synthetic, segments for iovnbd). */
   listRuns: () => Promise<{ id: string; name: string; subtitle: string }[]>;

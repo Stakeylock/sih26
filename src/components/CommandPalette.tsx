@@ -18,7 +18,6 @@ import type { Replay } from "../hooks/useReplay";
 type Ctx = {
   replay: Replay;
   setView: (v: string) => void;
-  setJudge: (v: boolean) => void;
 };
 
 type Item = {
@@ -69,13 +68,12 @@ const ITEMS: Item[] = [
   },
   {
     id: "act-demo",
-    label: "Play 2-minute judge demo",
+    label: "Play 2-minute demo",
     icon: Play,
     group: "Replay",
-    run: ({ replay, setView, setJudge }) => {
+    run: ({ replay, setView }) => {
       replay.playDemo();
       setView("navigate");
-      setJudge(true);
     },
   },
   {
@@ -113,7 +111,7 @@ const ITEMS: Item[] = [
   },
 ];
 
-export function CommandPalette({ replay, setView, setJudge }: Ctx) {
+export function CommandPalette({ replay, setView }: Ctx) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [sel, setSel] = useState(0);
@@ -124,28 +122,27 @@ export function CommandPalette({ replay, setView, setJudge }: Ctx) {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setOpen((o) => !o);
+        setOpen((v) => !v);
         return;
       }
-      if (open && e.key === "Escape") {
+      if (e.key === "Escape" && open) {
         e.preventDefault();
         setOpen(false);
         return;
       }
-      // Space = play/pause anywhere (except while typing / in the palette);
-      // arrows scrub ±5 s — the transport judges reach for instinctively
-      if (!open && !typing && !e.metaKey && !e.ctrlKey) {
-        if (e.key === " ") {
+      if (e.key === " " && !typing && !open) {
+        e.preventDefault();
+        replay.setPlaying(!replay.playing);
+      }
+      if (!typing && !open) {
+        if (e.key === "ArrowLeft") {
           e.preventDefault();
-          replay.setPlaying(!replay.playing);
+          replay.seek(Math.max(0, replay.t - 5));
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
-          replay.seek(replay.t + 5);
-        } else if (e.key === "ArrowLeft") {
-          e.preventDefault();
-          replay.seek(replay.t - 5);
+          replay.seek(Math.min(replay.run.duration, replay.t + 5));
         }
       }
     };
@@ -153,17 +150,17 @@ export function CommandPalette({ replay, setView, setJudge }: Ctx) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, replay]);
 
-  // focus + reset query on open
   useEffect(() => {
     if (open) {
       setQuery("");
       setSel(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
+      setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [open]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (!q) return ITEMS;
     const list = q
       ? ITEMS.filter(
           (i) =>
@@ -178,7 +175,7 @@ export function CommandPalette({ replay, setView, setJudge }: Ctx) {
 
   const execute = (item: Item) => {
     setOpen(false);
-    item.run({ replay, setView, setJudge });
+    item.run({ replay, setView });
   };
 
   let lastGroup = "";

@@ -218,6 +218,7 @@ export function CityMap({
     [open, setOpen] = useState(false),
     [zoom, setZoom] = useState(1),
     [follow, setFollow] = useState(() => window.innerWidth <= 700);
+  const isReal = run.source === "iovnbd" || run.source === "byod";
   const iov = run.source === "iovnbd";
   const trails = useMemo(
     () =>
@@ -226,11 +227,64 @@ export function CityMap({
         .filter((_, i) => i % 3 === 0),
     [run, snapshot.t],
   );
-  // reference path is static per run; in IO-VNBD mode it is the real GNSS track
+  // reference path is static per run; in IO-VNBD/BYOD mode it is the real GNSS track
   const refD = useMemo(() => path(run.scenario.route), [run]);
-  const w = 1200 / zoom,
-    h = 800 / zoom,
-    c = follow ? snapshot.map : { x: 600, y: 400 };
+
+  // Compute dynamic ENU bounds so real routes always fit cleanly without clipping
+  const bounds = useMemo(() => {
+    const pts = run.scenario.route;
+    if (!pts || pts.length === 0) {
+      return { cx: 600, cy: 400, w: 1200, h: 800 };
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      if (p.x != null && Number.isFinite(p.x)) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+      }
+      if (p.y != null && Number.isFinite(p.y)) {
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    // Also check all estimator traces so drift never clips beyond canvas
+    if (run.snapshots && run.snapshots.length > 0) {
+      for (let i = 0; i < run.snapshots.length; i += 4) {
+        const s = run.snapshots[i];
+        for (const pt of [s.ekf, s.ins, s.classical, s.live, s.map, s.reference]) {
+          if (pt && Number.isFinite(pt.x) && Number.isFinite(pt.y)) {
+            if (pt.x < minX) minX = pt.x;
+            if (pt.x > maxX) maxX = pt.x;
+            if (pt.y < minY) minY = pt.y;
+            if (pt.y > maxY) maxY = pt.y;
+          }
+        }
+      }
+    }
+    if (!Number.isFinite(minX)) {
+      return { cx: 600, cy: 400, w: 1200, h: 800 };
+    }
+    const spanX = Math.max(120, maxX - minX);
+    const spanY = Math.max(90, maxY - minY);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    // Keep 3:2 aspect ratio with 30% padding
+    let w = spanX * 1.3;
+    let h = spanY * 1.3;
+    if (w / h > 1.5) {
+      h = w / 1.5;
+    } else {
+      w = h * 1.5;
+    }
+    return { cx, cy, w, h };
+  }, [run]);
+
+  const defaultCenter = isReal ? { x: bounds.cx, y: bounds.cy } : { x: 600, y: 400 };
+  const baseW = isReal ? bounds.w : 1200;
+
+  const c = follow ? (snapshot.map ?? snapshot.ekf) : defaultCenter;
+  const w = (follow ? Math.min(baseW, 600) : baseW) / zoom;
+  const h = w / 1.5;
   const view = `${c.x - w / 2} ${c.y - h / 2} ${w} ${h}`;
   return (
     <section className="map-surface" aria-label="Interactive navigation map">
@@ -248,9 +302,38 @@ export function CityMap({
         viewBox={view}
         preserveAspectRatio={follow ? "xMidYMid slice" : "xMidYMid meet"}
         role="img"
-        aria-label="Synthetic district map with separate estimated trajectories"
+        aria-label="Interactive district map with separate estimated trajectories"
       >
-        {iov ? <rect width="1200" height="800" fill="#0d1518" /> : <BaseMap />}
+        {isReal ? (
+          <>
+            <defs>
+              <pattern
+                id="enu-mapgrid"
+                width="100"
+                height="100"
+                patternUnits="userSpaceOnUse"
+              >
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#1c2a2e" strokeWidth="0.8" />
+              </pattern>
+            </defs>
+            <rect
+              x={c.x - w * 4}
+              y={c.y - h * 4}
+              width={w * 8}
+              height={h * 8}
+              fill="#0d1518"
+            />
+            <rect
+              x={c.x - w * 4}
+              y={c.y - h * 4}
+              width={w * 8}
+              height={h * 8}
+              fill="url(#enu-mapgrid)"
+            />
+          </>
+        ) : (
+          <BaseMap />
+        )}
         {layers.reference && (
           <path
             d={refD}
@@ -403,9 +486,13 @@ export function CityMap({
       <div className="map-top">
         <span className="map-location">
           <i />
-          {iov ? (
+          {run.source === "iovnbd" ? (
             <>
               IO-VNBD TRIP {run.iovnbd?.trip} <b>REAL DATA REPLAY</b>
+            </>
+          ) : run.source === "byod" ? (
+            <>
+              {run.byod?.counterfactual ? "OWN DRIVE (COUNTERFACTUAL)" : "OWN DRIVE"} <b>PHONE CAPTURE</b>
             </>
           ) : (
             <>
@@ -532,7 +619,7 @@ export function CityMap({
             near 1/5 of the shown width; width% keeps it honest at any zoom. */}
         {(() => {
           const target = w / 5;
-          const nice = [10, 20, 50, 100, 200, 500, 1000].find((v) => v >= target) ?? 1000;
+          const nice = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000].find((v) => v >= target) ?? (target > 5000 ? Math.round(target / 1000) * 1000 : 1000);
           return (
             <div className="scalebar" aria-hidden>
               <i style={{ width: `${(nice / w) * 100}%` }} />

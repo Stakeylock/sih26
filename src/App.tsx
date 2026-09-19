@@ -39,7 +39,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { ConstraintsPanel } from "./components/ConstraintsPanel";
 import { TrustPanel } from "./components/TrustPanel";
 import { FallbackCard } from "./components/FallbackCard";
-import { JudgeOverlay } from "./components/judge/JudgeOverlay";
+import { NarrationBar } from "./components/NarrationBar";
 import { Modal, Toggle } from "./components/ui";
 import { scenarios } from "./engine/scenarios";
 import { judgeCalloutAt, judgeStages } from "./engine/judge";
@@ -69,7 +69,6 @@ export default function App() {
     [basic, setBasic] = useState(getBasic),
     [modal, setModal] = useState<"scenario" | "help" | null>(null),
     [notice, setNotice] = useState(""),
-    [judge, setJudge] = useState(false),
     [palette, setPalette] = useState(false);
   // BYOD file input (hidden; triggered from the scenario modal + palette)
   const byodInput = useRef<HTMLInputElement | null>(null);
@@ -77,7 +76,13 @@ export default function App() {
     file.text().then((txt) => {
       try {
         const res = replay.loadByod(JSON.parse(txt));
-        setNotice(res.ok ? "Capture loaded — navigating your drive." : res.error ?? "Load failed.");
+        if (res.ok && res.report) {
+          const rep = res.report;
+          const cfMsg = rep.counterfactualEligible ? " · Counterfactual outage eligible" : " · v1 replay";
+          setNotice(`Capture loaded (${rep.duration.toFixed(0)}s, ${rep.motionRateHz.toFixed(0)} Hz)${cfMsg}`);
+        } else {
+          setNotice(res.ok ? "Capture loaded — navigating your drive." : res.error ?? "Load failed.");
+        }
         if (res.ok) {
           setModal(null);
           setView("navigate");
@@ -88,7 +93,7 @@ export default function App() {
     });
   };
   const stages = useMemo(() => judgeStages(replay.run), [replay.run]);
-  const callout = judge ? judgeCalloutAt(stages, replay.t) : null;
+  const callout = useMemo(() => judgeCalloutAt(stages, replay.t), [stages, replay.t]);
   useEffect(() => {
     try {
       localStorage.setItem("astranav-basic-v2", String(basic));
@@ -118,7 +123,6 @@ export default function App() {
   }, [replay.snapshot?.state]);
   const configure = (patch: Parameters<typeof replay.configure>[0]) => {
     replay.configure(patch);
-    setJudge(false);
     setNotice("Replay reset with your new configuration.");
   };
   const navigation = [
@@ -196,9 +200,11 @@ export default function App() {
                 MODE: IO-VNBD REPLAY · REAL DATA
               </span>
             ) : replay.source === "byod" ? (
-              <span className="simulation-tag iovnbd">
+              <span className={`simulation-tag iovnbd ${replay.isCounterfactual ? "counterfactual" : ""}`}>
                 <i />
-                MODE: OWN DRIVE · GPS-REFERENCED · LIVE FILTER
+                {replay.isCounterfactual
+                  ? "MODE: OWN DRIVE · SYNTHETIC OUTAGE (CF)"
+                  : "MODE: OWN DRIVE · GPS-REFERENCED · LIVE FILTER"}
               </span>
             ) : (
               <span className="simulation-tag">
@@ -210,6 +216,17 @@ export default function App() {
           </div>
         </header>
         <main>
+          {replay.isCounterfactual && (
+            <div className="counterfactual-banner" role="status" data-testid="cf-banner">
+              <span className="cf-pill">COUNTERFACTUAL TEST</span>
+              <strong>REAL PHONE RECORDING · SYNTHETIC GNSS OUTAGE</strong>
+              <small>
+                GPS position, speed &amp; course algorithmically masked from the estimator for{" "}
+                {replay.byodCounterfactual?.outageDuration}s. Original phone GPS track is retained
+                strictly as a hidden evaluation reference.
+              </small>
+            </div>
+          )}
           <div className="workspace-heading">
             <div>
               <div className="section-label">
@@ -265,18 +282,6 @@ export default function App() {
                 onClick={() => {
                   replay.playDemo();
                   setView("navigate");
-                  setJudge(true);
-                }}
-              >
-                <ShieldCheck size={14} />
-                Judge mode <span>narrated</span>
-              </button>
-              <button
-                className="button"
-                onClick={() => {
-                  replay.playDemo();
-                  setView("navigate");
-                  setJudge(false);
                 }}
               >
                 <Play size={14} fill="currentColor" />
@@ -324,6 +329,7 @@ export default function App() {
               </button>
             </div>
           </div>
+          <NarrationBar callout={callout} snapshot={replay.snapshot} />
           <div className={`workspace ${view}`}>
             {view === "navigate" ? (
               <div className="navigation-layout">
@@ -378,7 +384,6 @@ export default function App() {
             ) : (
               <SystemView snapshot={replay.snapshot} />
             )}
-            <JudgeOverlay callout={callout} />
             <Playback replay={replay} />
           </div>
           <footer className="app-footer">
@@ -424,7 +429,6 @@ export default function App() {
                 className={replay.source === "synthetic" ? "active" : ""}
                 onClick={() => {
                   replay.switchSource("synthetic");
-                  setJudge(false);
                 }}
               >
                 <strong>SYNTHETIC DEMO</strong>
@@ -434,7 +438,6 @@ export default function App() {
                 className={replay.source === "iovnbd" ? "active" : ""}
                 onClick={() => {
                   replay.switchSource("iovnbd");
-                  setJudge(false);
                 }}
               >
                 <strong>IO-VNBD REPLAY</strong>
@@ -546,12 +549,25 @@ export default function App() {
               GNSS jump, or bad speed. Every fault is recorded in the ledger and
               survives seeking.
             </p>
+            <h3>Bring Your Own Drive (BYOD)</h3>
+            <p>
+              Test the console on your own physical drive captured from an ordinary smartphone:
+            </p>
+            <ol style={{ paddingLeft: "18px", margin: "6px 0 10px", lineHeight: "1.6" }}>
+              <li><strong>Step 1 — Connect:</strong> Ensure your phone and laptop are on the same local Wi-Fi.</li>
+              <li><strong>Step 2 — Open Capture:</strong> In your mobile browser, navigate to <code>/byod.html</code> (e.g. <code>http://&lt;laptop-ip&gt;:4175/byod.html</code>).</li>
+              <li><strong>Step 3 — Record:</strong> Firmly mount or hold the phone steady, tap <strong>START CAPTURE</strong>, then drive or walk normally (recommended 2–5 min; include turns and one stop).</li>
+              <li><strong>Step 4 — Import:</strong> Tap <strong>DOWNLOAD CAPTURE</strong>, then in AstraNav click <em>Configure → YOUR DRIVE (BYOD) → Load</em>.</li>
+            </ol>
+            <p style={{ fontSize: "12px", color: "#e8b664", background: "#261d12", padding: "8px 12px", borderRadius: "4px" }}>
+              <strong>Important:</strong> BYOD uses the phone's own GPS track as a reference standard. It is not survey-grade ground truth. Mobile Chrome/Safari may require HTTPS for motion sensors.
+            </p>
             <h3>Prototype boundary</h3>
             <p>
-              The replay pipeline, 15-state ES-EKF, learned motion-mode
-              classifier, and Viterbi map matching are functional and run
-              locally. Android live sensors and external IMU inputs are future
-              work — every replay uses recorded real data, labeled as such.
+              The live 15-state ES-EKF, learned motion-mode classifier, and Viterbi
+              map matching run entirely client-side in-browser. Android background services
+              and external CAN-bus/IMU integrations are roadmap targets — every replay
+              uses recorded sensor data, labeled transparently.
             </p>
           </div>
         </Modal>
@@ -560,7 +576,6 @@ export default function App() {
       <CommandPalette
         replay={replay}
         setView={(v) => setView(v as AppView)}
-        setJudge={setJudge}
       />
     </div>
   );

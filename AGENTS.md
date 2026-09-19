@@ -78,6 +78,44 @@ export function ChartsPanel({ run, t, onSeek }: {
 
 ## LOG (append-only, newest first)
 
+- 2026-09-19 12:22 — Antigravity: **IO-VNBD ESTIMATOR ENU COORDINATE FRAME ALIGNMENT FIX**.
+  (1) Diagnosed Disconnected Map Traces:
+      - Raw IO-VNBD trips store reference tracks in global ENU coordinates (e.g. Urban circuit S1 at X ≈ -2795 m, Y ≈ 592 m).
+      - `liveeskf.ts` previously called `initEskf([0, 0, 0], ...)`; the initial GNSS fix had an innovation of 2857 m, triggering the χ²(2) NIS gate to permanently reject all pre-outage fixes and leaving the live filter at (0, 0).
+      - Simultaneously, offline benchmark traces (`insX`, `clsX`, `ekfX`) from `tools/prep_iovnbd.py` were serialized starting at (0, 0) relative to their own DR propagation instead of being rooted to the blackout start fix.
+      - As a result, the map showed two disconnected clusters 3 km apart: reference route on the left, and estimator traces on the right, making the bounding box 4+ km wide and distorting the display.
+  (2) Fixed Ingest & Propagation Alignment (`src/engine/liveeskf.ts`, `src/engine/iovnbd.ts`):
+      - In `liveeskf.ts`: Initialized `st` at the first valid GNSS fix (`initX`, `initY`), enabling nominal NIS innovation gating (< 9.21) so fixes are fused and the live filter follows the true route.
+      - In `iovnbd.ts`: Re-rooted `ins`, `cls`, and `ekf` to `pPreRef` (`refX[seg.pre]`, `refY[seg.pre]`) with their exact delta displacements (`insX[i] - insX[seg.pre]`). Pre-outage epochs track the reference route, and outage epochs diverge directly from the road. Error calculations (`errOf`) perfectly preserve the exact frozen benchmark metrics (e.g. INS 624.62 m, EKF 442.17 m).
+      - In `CityMap.tsx`: All traces now share the exact same ENU coordinates. The canvas zooms in cleanly on the road and outage drift without empty space or disconnected paths.
+  (3) Verification:
+      - Vitest: **70/70 tests pass** across all 8 suites.
+      - Build: `tsc -b && vite build` clean (0 errors, 282 ms).
+      - Dev Server: Running on `http://localhost:4173/`. Hard rules respected (no git commit/push/stage/checkout/reset).
+
+- 2026-09-19 12:12 — Antigravity: **EXPERT MODE ACCESSIBILITY, MAP BOUNDS & DEDICATED NARRATION COMPLETE**.
+  (1) Removed Judge Mode & Added Dedicated Narration (`src/components/NarrationBar.tsx`, `src/App.tsx`, `src/components/CommandPalette.tsx`, `src/styles.css`):
+      - Removed the intrusive "Judge mode" button from workspace heading.
+      - Built and mounted a dedicated, non-intrusive `<NarrationBar />` prominently above `.workspace` displaying state-reactive engineering narration badges (NOMINAL, DENIED, REACQUIRING, DEGRADED), step progression (e.g. 01 / 06 or LIVE), and full contextual explanations.
+  (2) Fixed Expert Mode Scrolling & Button Accessibility (`src/styles.css`, `src/App.tsx`):
+      - Fixed root cause: `@media (min-width: 1600px)` had hard clamped `.navigation-layout` to `height: calc(100dvh - 375px)` with `overflow: hidden` on `.workspace`, completely clipping the 1200px+ expert stack (TrustPanel, ConstraintsPanel, ChartsPanel, ExplainabilityPanel) and blocking scrolling.
+      - Sized `.navigation-layout` with `max-height: calc(100dvh - 290px); overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;`.
+      - Pinned `<Playback />` transport cleanly to bottom of `.workspace` (`position: sticky; bottom: 0; flex-shrink: 0; z-index: 15;`) ensuring full accessibility of playback, scrub bar, and all expert buttons across all screen heights.
+  (3) Fixed Real Dataset Map Clipping (`src/components/CityMap.tsx`):
+      - Dynamic ENU bounding box calculation in `CityMap.tsx` now evaluates all route points and estimator drift traces (`ekf`, `ins`, `classical`, `live`, `map`, `reference`) across all snapshots with a 30% margin and 3:2 aspect ratio.
+      - Real datasets (such as Urban circuit - Driver A, Trip S1, S3A, etc.) now center properly without vehicle or drift trajectories leaving the canvas.
+  (4) Verification:
+      - Vitest: **70/70 tests pass** across all 8 suites.
+      - TypeScript & Build: `tsc -b && vite build` 100% clean (0 errors, 287 ms).
+      - Dev Server: Verified live on `http://localhost:4173/`. Hard rules respected (no git commit/push/stage/checkout/reset).
+
+- 2026-09-19 11:30 — Antigravity: **BYOD HARDENING & COUNTERFACTUAL GNSS DENIAL COMPLETE**. Implemented full plan from `AstraNav_IDR_Post_BYOD_Hardening_and_Counterfactual_GNSS_Plan.md`:
+  (1) Sensor Capture Hardening (`public/byod.html`): Schema v2 upgrade capturing 3-axis accel (`ax, ay, az`), gravity, 3-axis gyro, compass yaw, device metadata, and a 2 s sensor watchdog alert for frozen sensor streams; backward-compatible JSON export.
+  (2) Favicon & PWA Branding (`public/favicon.svg`, `index.html`): Vector SVG favicon featuring AstraNav cyan/lime navigation chevron and integrity ring; `#0d1518` meta theme-color and description.
+  (3) Core Engine (`src/engine/byod.ts`, `src/engine/types.ts`, `src/engine/runlog.ts`): Added `validateByodCapture` (monotonicity, sample rate, gap detection, replay/counterfactual eligibility report), `ByodCounterfactualConfig`, `buildByodCounterfactualRun` with zero-leakage GNSS masking, stationary windowed detection, and reacquisition filter integration. Added `byod` source persistence to Run Library (`SavedRun`).
+  (4) UI & Replay Integration (`src/hooks/useReplay.ts`, `src/App.tsx`, `src/components/ReplayLab.tsx`, `src/components/Evidence.tsx`, `src/components/judgeReport.ts`, `src/styles.css`): Added "WHAT IF GPS DISAPPEARED HERE?" controls with 10s/30s/60s presets and custom duration; active counterfactual warning banner; capture health toast; Counterfactual Own-Drive Analysis card in Evidence; dedicated Counterfactual section and own-drive provenance in offline Judge Report.
+  (5) Rigorous Verification: Expanded `src/engine/byod.test.ts` to 18 unit tests, proving capture validation, preset handling, reacquisition lifecycle, bitwise determinism, and mathematical zero-leakage invariance during blackout. **70/70 tests pass** across 8 test suites; `tsc -b && vite build` clean (0 errors, 369 ms). Hard rules respected (no git commit/push/stage, no restore/reset).
+
 - 2026-09-19 10:45 — Buffy: BYOD INTEGRATION COMPLETENESS SWEEP. (1) Judge-mode narration now has a dedicated BYOD stage-1 ("YOUR OWN DRIVE · LIVE — your phone, navigating through the same 15-state filter") and byod-aware stage-6 (points at Judge report export); source union widened in types.ts, runlog.ts (saved-run trip reads "OWN DRIVE"), ConstraintsPanel. (2) USER REMINDER captured in docs/handover.md: remove AGENTS.md from the repo at the FINAL commit (git rm --cached AGENTS.md). Verified: tsc 0, 59/59, build ✓. Known gaps for this block (next up): favicon/branding absent; help modal not BYOD-aware; CommandPalette has no "Load BYOD capture" action; judge report hardcodes scenario label for byod (reads cfg.scenario = "byod" — acceptable but could read capture time); byod runs with outage 0 — Replay Lab fault injection still synthetic-only (documented).
 
 - 2026-09-19 10:30 — Bob (IBM): **BYOD INGEST ROUND-TRIP TESTS COMPLETE**. Created `src/engine/byod.test.ts` — 7 new tests across two suites. Synthetic ByodCapture: 600 samples @10 Hz, smooth arc (0.6 °/s yaw-rate, 10 m/s, 60 s), GPS noise 0.1 m (well below 1 m/step). Key diagnosis during development: Buffy's `buildByodBundle` `course` calibration uses incremental GPS displacement > 3 m; at 10 Hz/10 m/s each step is only 1 m, so GPS noise must be < step size for correct heading-offset recovery — this is documented in the test comments as a known constraint, not a bug to fix now. Structural suite: (1) snapshot count ≈ 600, (2) `events.byod-start` present + `severity='info'`, (3) `source='iovnbd'` + `iovnbd.segmentId='BYOD'` + `trip='OWN DRIVE'`, (4) `|calib.gyroBias| < 0.05 rad/s`. Quality suite: (5) final EKF error < 30 m (actual: 0.13 m), (6) no NaN in `snapshot.ekf` any epoch, (7) no NaN in `snapshot.gnss` for non-null epochs. Suite time ≈ 1.6 s (live EKF over 600 samples is unavoidable; test logic is trivial). Verified: tsc 0, **59/59 tests** pass, build ✓ (322 ms). No engine/component files touched. Diagnostic temp files removed. No commit.

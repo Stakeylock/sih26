@@ -42,3 +42,14 @@ Print this or keep it open on a phone. No step skipped, no improvising.
   regression would — and where the model is unsure, the OOD gate suspends it
   and the constraints carry navigation. We report the weakness because hiding
   it is how navigation systems get people lost."
+
+## 5. BYOD closing-demo preflight (flagship demonstration)
+1. Canonical BYOD file ready on laptop.
+2. Configure → YOUR DRIVE (BYOD) → Load Capture.
+3. Confirm header badge: **MODE: OWN DRIVE · GPS-REFERENCED · LIVE FILTER**.
+4. Capture health: Counterfactual eligible = YES.
+5. In Replay Lab, seek cursor to rehearsed outage point.
+6. Click "LOSE GNSS AT CURRENT TIME" (30s preset).
+7. Confirm header tag flips to **MODE: OWN DRIVE · SYNTHETIC OUTAGE (CF)** and counterfactual banner appears.
+8. Replay through outage; confirm REACQUISITION card transitions to RELOCKED.
+9. Open Evidence → verify "Judge report" HTML generates with honest disclosures.

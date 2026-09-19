@@ -11,7 +11,7 @@ import type { Run, Config } from "./types";
 export type SavedRun = {
   /** Unique run identifier (UUID v4). */
   run_id: string;
-  /** Data provenance: "synthetic" | "iovnbd". */
+  /** Data provenance: "synthetic" | "iovnbd" | "byod". */
   source: "synthetic" | "iovnbd" | "byod";
   /** Trip/segment identifier (e.g., "S1-B60-A"). */
   trip: string;
@@ -42,17 +42,13 @@ function genId(): string {
 /** Extract a SavableRun from a full Run, stripping heavy arrays. */
 export function toSavedRun(run: Run): SavedRun {
   const src = run.source ?? "synthetic";
-  const trip = src === "iovnbd" && run.iovnbd
+  const trip = src === "byod" && run.byod
+    ? (run.byod.counterfactual ? "BYOD (Counterfactual)" : "BYOD (Own Drive)")
+    : src === "iovnbd" && run.iovnbd
     ? run.iovnbd.segmentId
-    : src === "byod"
-      ? "OWN DRIVE"
-      : run.scenario.id;
-  const finalErrors = src === "iovnbd" && run.iovnbd
-    ? run.iovnbd.finalErrors
-    : {};
-  const live = src === "iovnbd" && run.iovnbd
-    ? run.iovnbd.live
-    : undefined;
+    : run.scenario.id;
+  const finalErrors = run.iovnbd?.finalErrors ?? {};
+  const live = run.iovnbd?.live;
 
   return {
     run_id: genId(),

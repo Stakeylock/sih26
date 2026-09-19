@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { defaultConfig, scenarios } from "../engine/scenarios";
 import { simulate } from "../engine/simulation";
 import { buildIovnbdRun, iovnbdScenarios, loadIovnbd } from "../engine/iovnbd";
-import { buildByodRun, type ByodCapture } from "../engine/byod";
+import {
+  buildByodRun,
+  buildByodCounterfactualRun,
+  validateByodCapture,
+  type ByodCapture,
+  type ByodHealthReport,
+  type ByodCounterfactualConfig,
+} from "../engine/byod";
 import { computeExplainability } from "../engine/explain";
 import type { Config, FaultKind, Run, Scenario } from "../engine/types";
 
@@ -13,6 +20,8 @@ export function useReplay() {
   const [iovReady, setIovReady] = useState(false);
   const [iovData, setIovData] = useState<Awaited<ReturnType<typeof loadIovnbd>>>(null);
   const [byodCap, setByodCap] = useState<ByodCapture | null>(null);
+  const [byodHealth, setByodHealth] = useState<ByodHealthReport | null>(null);
+  const [byodCounterfactual, setByodCounterfactual] = useState<ByodCounterfactualConfig | null>(null);
   const [config, setConfig] = useState<Config>(defaultConfig);
   const [ablation, setAblation] = useState({
     useNHC: true,
@@ -47,10 +56,13 @@ export function useReplay() {
       return buildIovnbdRun({ ...config, ...ablation }, iovData);
     }
     if (source === "byod" && byodCap) {
+      if (byodCounterfactual && byodCounterfactual.outageDuration > 0) {
+        return buildByodCounterfactualRun({ ...config, ...ablation }, byodCap, byodCounterfactual);
+      }
       return buildByodRun({ ...config, ...ablation }, byodCap);
     }
     return simulate({ ...config, ...ablation });
-  }, [source, iovData, byodCap, config, ablation]);
+  }, [source, iovData, byodCap, byodCounterfactual, config, ablation]);
 
   const activeScenarios: Scenario[] =
     source === "iovnbd" ? iovnbdList : scenarios;
@@ -127,21 +139,32 @@ export function useReplay() {
     setPlaying(false);
   };
   /** BYOD: load a phone capture JSON (validated), switch to it, report errors. */
-  const loadByod = (cap: unknown): { ok: boolean; error?: string } => {
+  const loadByod = (cap: unknown): { ok: boolean; error?: string; report?: ByodHealthReport } => {
     try {
-      const c = cap as ByodCapture;
-      if (c?.kind !== "astranav-byod" || !Array.isArray(c.imuWz) || c.imuWz.length < 100)
-        return { ok: false, error: "Not a valid AstraNav capture (too short or wrong kind)." };
-      setByodCap(c);
+      const val = validateByodCapture(cap);
+      if (!val.valid) {
+        return { ok: false, error: val.error || "Capture did not meet replay criteria.", report: val.report };
+      }
+      setByodCap(cap as ByodCapture);
+      setByodHealth(val.report);
+      setByodCounterfactual(null);
       setSource("byod");
       setConfig((old) => ({ ...old, scenario: "byod", faults: [] }));
       seek(0);
       setPlaying(false);
-      return { ok: true };
+      return { ok: true, report: val.report };
     } catch (e) {
       return { ok: false, error: `Could not parse capture: ${String(e)}` };
     }
   };
+
+  const applyByodCounterfactual = (outage: ByodCounterfactualConfig | null) => {
+    setByodCounterfactual(outage);
+    if (outage) {
+      seek(outage.outageStart);
+    }
+  };
+
   const snapshot = run.snapshots[Math.min(run.snapshots.length - 1, Math.round(t * 10))];
   const explainability = useMemo(
     () => computeExplainability(snapshot, run, ablation),
@@ -157,6 +180,10 @@ export function useReplay() {
     switchSource,
     loadByod,
     byodLoaded: !!byodCap,
+    byodHealth,
+    byodCounterfactual,
+    applyByodCounterfactual,
+    isCounterfactual: !!(source === "byod" && byodCounterfactual && byodCounterfactual.outageDuration > 0),
     t,
     playing,
     speed,
