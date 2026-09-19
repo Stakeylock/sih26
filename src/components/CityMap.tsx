@@ -540,9 +540,9 @@ export function CityMap({
             <i className="cyan" />
             ES-EKF + ML
           </span>
-          <span>
+          <span title="Route-topology replay matcher; full OSM graph is future work">
             <i className="lime" />
-            Map-assisted
+            Route match
           </span>
           <span>
             <i className="coral dotted" />

@@ -56,24 +56,30 @@ function headingDiff(a: number, b: number): number {
 /**
  * Build candidate points from a reference route at regular intervals.
  * The route is the ground-truth GNSS track (or a road network in production).
+ * Cumulative distance s monotonically increases from 0 along the route.
  */
 export function buildCandidates(route: Point[], spacing = 5): CandidatePoint[] {
   if (route.length < 2) return [];
   const cands: CandidatePoint[] = [];
-  let accum = 0;
-  let last = route[0];
-  cands.push({ x: last.x, y: last.y, idx: 0, s: 0, heading: 0 });
+  let totalDist = 0;
+  let distSinceCand = 0;
+
+  // Initial heading from the first segment
+  const h0 = (Math.atan2(route[1].y - route[0].y, route[1].x - route[0].x) * 180) / Math.PI;
+  cands.push({ x: route[0].x, y: route[0].y, idx: 0, s: 0, heading: h0 });
+
   for (let i = 1; i < route.length; i++) {
+    const prev = route[i - 1];
     const cur = route[i];
-    const dx = cur.x - last.x;
-    const dy = cur.y - last.y;
+    const dx = cur.x - prev.x;
+    const dy = cur.y - prev.y;
     const segLen = Math.hypot(dx, dy);
-    accum += segLen;
-    const heading = Math.atan2(dy, dx) * 180 / Math.PI;
-    if (accum >= spacing || i === route.length - 1) {
-      cands.push({ x: cur.x, y: cur.y, idx: i, s: accum, heading });
-      accum = 0;
-      last = cur;
+    totalDist += segLen;
+    distSinceCand += segLen;
+    const heading = (Math.atan2(dy, dx) * 180) / Math.PI;
+    if (distSinceCand >= spacing || i === route.length - 1) {
+      cands.push({ x: cur.x, y: cur.y, idx: i, s: totalDist, heading });
+      distSinceCand = 0;
     }
   }
   return cands;

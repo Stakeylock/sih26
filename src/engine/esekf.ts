@@ -347,14 +347,16 @@ function inject(s: EskfState, dx: number[]) {
   s.bg = [s.bg[0] + dx[12], s.bg[1] + dx[13], s.bg[2] + dx[14]];
 }
 
-/** GNSS position update (x, y used; z ignored — planar replay). */
+/** GNSS 2D planar position update (x, y). NIS gated against cfg.nisGate (9.21 = χ²(2, 0.99)). */
 export function updateGnss(s: EskfState, x: number, y: number, sigma: number, cfg: EskfConfig): UpdateResult {
-  const H = zeros(3 * 15);
-  H[0 * 15 + 0] = 1; H[1 * 15 + 1] = 1; H[2 * 15 + 2] = 1;
-  const R = zeros(9);
-  R[0] = sigma * sigma; R[4] = sigma * sigma; R[8] = 400; // z loosely held
-  const z = [x - s.p[0], y - s.p[1], 0 - s.p[2]];
-  return linearUpdate(s, H, R, z, 3, "gnss", cfg.useGNSSGate, cfg.nisGate);
+  const H = zeros(2 * 15);
+  H[0 * 15 + 0] = 1;
+  H[1 * 15 + 1] = 1;
+  const R = zeros(4);
+  R[0] = sigma * sigma;
+  R[3] = sigma * sigma;
+  const z = [x - s.p[0], y - s.p[1]];
+  return linearUpdate(s, H, R, z, 2, "gnss", cfg.useGNSSGate, cfg.nisGate);
 }
 
 /** Forward-speed pseudo-measurement from the learned motion-mode classifier. */

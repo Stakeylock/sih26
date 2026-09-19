@@ -128,15 +128,15 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
           : "denied",
   };
 
-  // MAP MATCH — in replay mode this is the Viterbi route-topology matcher
-  // (honest label: it matches against the reference topology, no OSM graph)
+  // ROUTE LOCK — in replay mode this is the Viterbi route-topology matcher
+  // (honest label: emission-distance score against reference route; full OSM graph is future work)
   const mapCard: TrustCard = iovnbd
     ? snapshot.mapUsed
       ? {
           id: "map",
           icon: <MapPinned size={14} />,
-          label: "MAP MATCH",
-          // §7.3: confidence = the real HMM emission likelihood of the live
+          label: "ROUTE LOCK",
+          // §7.3: score = the real HMM emission likelihood of the live
           // position under the matched topology point (snapshot.mapLock)
           statusWord: (snapshot.mapLock ?? 0) > 0.6 ? "LOCKED" : "AMBIGUOUS",
           value:
@@ -145,14 +145,14 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
               : "VITERBI",
           why:
             (snapshot.mapLock ?? 0) > 0.6
-              ? "Route-topology HMM match applied to the live track"
-              : "Emission distance high — match kept but flagged ambiguous",
+              ? "Emission-distance score on route topology (OSM graph is future work)"
+              : "Emission distance high — route lock degraded (OSM graph is future work)",
           state: (snapshot.mapLock ?? 0) > 0.6 ? "ok" : "degraded",
         }
       : {
           id: "map",
           icon: <MapPinned size={14} />,
-          label: "MAP MATCH",
+          label: "ROUTE LOCK",
           statusWord: "OFF",
           value: "—",
           why: "Route matching disabled (ablation toggle)",
@@ -161,7 +161,7 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
     : {
         id: "map",
         icon: <MapPinned size={14} />,
-        label: "MAP MATCH",
+        label: "ROUTE LOCK",
         statusWord: snapshot.mapUsed ? "APPLIED" : "PAUSED",
         value: snapshot.candidates[0]
           ? `${(snapshot.candidates[0].probability * 100).toFixed(0)}%`

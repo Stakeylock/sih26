@@ -126,10 +126,10 @@ function boundContribution(snap: Snapshot, ablationNHC: boolean, ablationZUPT: b
     magnitude: snap.bound,
     unit: "m",
     detail: !hasSplit
-      ? `Combined 95% bound ${snap.bound.toFixed(1)} m (filter uncertainty)`
+      ? `Combined 2σ-style bound ${snap.bound.toFixed(1)} m (filter uncertainty)`
       : plDominant
-        ? `Protection level dominates: ${snap.boundPL!.toFixed(1)} m heading-systematic growth vs ${snap.boundCov!.toFixed(1)} m covariance`
-        : `Covariance dominates: ${snap.boundCov!.toFixed(1)} m filter uncertainty vs ${snap.boundPL!.toFixed(1)} m protection level`,
+        ? `Systematic-heading protection bound dominates: ${snap.boundPL!.toFixed(1)} m heading-systematic growth vs ${snap.boundCov!.toFixed(1)} m covariance envelope`
+        : `Covariance envelope dominates: ${snap.boundCov!.toFixed(1)} m 2σ uncertainty vs ${snap.boundPL!.toFixed(1)} m systematic-heading bound`,
   };
 }
 

@@ -16,6 +16,12 @@ describe("Viterbi HMM Map Matcher", () => {
     for (const c of cands) {
       expect(c.y).toBe(0);
     }
+    // Cumulative distance s must start at 0 and strictly increase monotonically
+    expect(cands[0].s).toBe(0);
+    for (let i = 1; i < cands.length; i++) {
+      expect(cands[i].s).toBeGreaterThan(cands[i - 1].s);
+      expect(cands[i].s).toBeCloseTo(cands[i].x, 5); // on straightRoute y=0, s == x
+    }
     // Headings should be 0 (east) or 180 (west) depending on direction
     for (const c of cands) {
       expect(Math.abs(c.heading) < 1 || Math.abs(c.heading - 180) < 1 || Math.abs(c.heading + 180) < 1).toBe(true);

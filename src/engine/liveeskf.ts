@@ -7,15 +7,18 @@
  *   - gyro yaw-axis rate (imuWz, rad/s; sign calibrated against the phone
  *     compass over the pre-outage window, bias from stationary detection)
  *   - phone compass yaw (yawPhone + pre-window-estimated heading offset)
- *   - GNSS fixes (NIS-gated updates, σ from recorded GPS accuracy)
+ *   - GNSS fixes (2D NIS-gated updates, σ from recorded GPS accuracy)
  *   - GNSS ground speed (while fixes are valid)
- *   - ZUPT from the stationary detector
+ *   - ML-gated ZUPT (physical stationary detector + learned P(stopped) > 0.45)
  *   - learned motion-mode speed (bundle classifier expectation)
  *   - NHC (lateral/vertical velocity ≈ 0)
  *
- * The uncertainty bound shown in the UI is the filter's own 95% horizontal
- * covariance bound — not a fabricated formula. This is the honest core of the
- * "what does the system believe and how sure is it" story.
+ * Architecture note: 15-state ES-EKF core with recorded gyro/compass/GNSS and
+ * pseudo-measurement aiding; horizontal phone-accelerometer propagation is
+ * intentionally suppressed in this replay adapter.
+ *
+ * The uncertainty bound shown in the UI is a 2σ-style covariance envelope
+ * combined with an SBAS-inspired systematic-heading protection bound.
  */
 import {
   defaultEskfConfig,
@@ -60,9 +63,9 @@ export type LiveChannels = {
 export type LiveResult = {
   x: number[]; y: number[];
   speed: number[]; heading: number[]; // compass deg from the filter itself
-  bound: number[];                    // 95% horizontal bound (max of cov + PL)
-  boundCov: number[];                 // 95% covariance-only bound, m
-  boundPL: number[];                  // protection-level component, m
+  bound: number[];                    // horizontal integrity envelope (max of cov + PL)
+  boundCov: number[];                 // 2σ-style covariance envelope, m
+  boundPL: number[];                  // systematic-heading protection bound, m
   covXX: number[];                    // position variance x (m²) per epoch
   covXY: number[];                    // position covariance (m²)
   covYY: number[];                    // position variance y (m²)
@@ -200,8 +203,8 @@ export function runLiveEskf(ch: LiveChannels, ablation?: { useNHC?: boolean; use
   const gnssRejected: boolean[] = new Array(n).fill(false);
   const mlInnov: (number | null)[] = new Array(n).fill(null);
 
-  // Protection-level accumulator (SBAS-style integrity bound on top of the
-  // filter covariance): un-aided heading systematics convert speed into
+  // Systematic-heading protection bound (SBAS-inspired integrity envelope on top of
+  // the filter covariance): un-aided heading systematics convert speed into
   // along/cross-track error at v·σψ per second. τ grows without a trusted
   // heading anchor (GNSS course or validated gyro) and resets on GNSS.
   const PSI_SYS = 0.17; // rad — in-car magnetometer systematic (honest, large)
@@ -286,17 +289,18 @@ export function runLiveEskf(ch: LiveChannels, ablation?: { useNHC?: boolean; use
       }
     }
 
-    // --- ZUPT with DURATION gating: the raw motion mask false-triggers on
-    // smooth roads (measured: hundreds of 1-2 sample runs at motorway
-    // cruising); genuine stops last many seconds. Apply zero-velocity only
-    // after the mask holds continuously for 2 s (20 samples), matching the
-    // run-length structure of real stops.
+    // --- ML-gated ZUPT with DURATION gating: require BOTH physical stationary
+    // detector (ch.zupt) and learned stopped probability (ch.pStop > 0.45) to agree.
+    // Apply zero-velocity only after the condition holds continuously for 2 s
+    // (20 samples), matching the run-length structure of real stops and preventing
+    // false stops on smooth motorways while honoring the learned motion mode.
     // ZARU (Zero Angular Rate Update): when stopped, yaw-rate ≈ 0. This
     // observes gyro bias on z-axis (bg[2]) through the heading-rate residual.
     // Same 2 s gate as ZUPT — a true stop has both zero velocity AND zero
     // angular rate. Applied separately so ablation can toggle independently.
     if (useZUPT) {
-      zuptRun = ch.zupt[i] > 0.5 ? zuptRun + 1 : 0;
+      const isStopped = ch.zupt[i] > 0.5 && (ch.pStop[i] == null || ch.pStop[i] > 0.45);
+      zuptRun = isStopped ? zuptRun + 1 : 0;
       if (zuptRun >= 20) {
         updateZupt(st, cfg.zuptSigma, cfg);
         // ZARU: yaw-rate pseudo-measurement σ ~ 0.03 rad/s (honest for stopped)
@@ -312,7 +316,7 @@ export function runLiveEskf(ch: LiveChannels, ablation?: { useNHC?: boolean; use
     x[i] = st.p[0]; y[i] = st.p[1];
     speed[i] = Math.hypot(st.v[0], st.v[1]);
     heading[i] = headingDeg(st);
-    // 95% covariance bound + heading-systematic protection level
+    // 2σ-style covariance envelope + systematic-heading protection bound
     const cov = 1.96 * Math.sqrt(Math.max(0, st.P[0] + st.P[1 * 15 + 1]));
     const pl = vBar * PSI_SYS * tau;
     boundCov[i] = Math.max(2, Math.min(1500, cov));

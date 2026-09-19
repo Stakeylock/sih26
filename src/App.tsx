@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Navigation2,
   Play,
+  Scale,
   Search as SearchIcon,
   ShieldCheck,
   SlidersHorizontal,
@@ -27,6 +28,7 @@ import { Evidence } from "./components/Evidence";
 import { SystemView } from "./components/SystemView";
 import { CalibrationView } from "./components/CalibrationView";
 import { ExperimentsView } from "./components/ExperimentsView";
+import { ComparatorView } from "./components/ComparatorView";
 import { ChartsPanel } from "./components/ChartsPanel";
 import { DataView } from "./components/DataView";
 import { ModelInspector } from "./components/ModelInspector";
@@ -48,6 +50,7 @@ type View =
   | "system"
   | "calibration"
   | "experiments"
+  | "compare"
   | "data"
   | "library"
   | "diagnostics";
@@ -94,6 +97,7 @@ export default function App() {
     { id: "system", name: "Architecture", icon: GitBranch },
     { id: "calibration", name: "Calibration", icon: SlidersHorizontal },
     { id: "experiments", name: "Experiments", icon: FlaskRound },
+    { id: "compare", name: "Compare", icon: Scale },
     { id: "data", name: "Data", icon: Database },
     { id: "library", name: "Runs", icon: FolderOpen },
     { id: "diagnostics", name: "Diagnostics", icon: Gauge },
@@ -315,6 +319,8 @@ export default function App() {
               <CalibrationView replay={replay} />
             ) : view === "experiments" ? (
               <ExperimentsView replay={replay} />
+            ) : view === "compare" ? (
+              <ComparatorView replay={replay} />
             ) : (
               <SystemView snapshot={replay.snapshot} />
             )}

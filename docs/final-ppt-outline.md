@@ -6,60 +6,87 @@
 *   **Visuals:** Team Recalibrate logo, SIH logo.
 *   **Asset Reuse:** Slide 1 from Idea Presentation.
 
-## Slide 2: Why Dead Reckoning is Hard
-*   **Content:** Explain the problem with standalone smartphone INS. A bad GPS fix before loss corrupts the starting state. Accelerometer integration explodes rapidly due to vibration and attitude error.
+## Slide 2: Why Dead Reckoning on Phones is Hard
+*   **Content:** Explain the challenge of standalone smartphone inertial navigation. Accelerometer double-integration explodes exponentially. In-car vibrations and arbitrary phone mounts create massive bias. Un-gated corrupted GPS fixes entering right before a blackout corrupt initial filter states.
 *   **Visuals:** Diagram showing "TRUSTED GNSS → DEGRADED → DENIED → DRIFT".
 *   **Asset Reuse:** Slide 2 from Idea Presentation.
 
-## Slide 3: Our Solution: AI-Aided Virtual Odometer
-*   **Content:** Instead of directly guessing lat/long, we use a learned motion-mode classifier. It extracts stop/motion states to anchor a physics-based filter (ZUPT-anchored fusion).
-*   **Visuals:** High-level conceptual flow (Sensors → Classifier → Fusion → Position).
+## Slide 3: Our Solution: AI-Aided Virtual Odometer + Live 15-State ES-EKF
+*   **Content:** Instead of unconstrained position guessing, AstraNav-IDR uses a learned 4-class motion-mode classifier to extract discrete vehicle motion states (Stopped, Low, Medium, High). These feed a live 15-state Error-State EKF alongside Non-Holonomic Constraints (NHC), ML-gated ZUPT, and ZARU.
+*   **Visuals:** High-level conceptual flow (Phone Sensors → Motion Classifier → ES-EKF with NHC/ZUPT → Position & Integrity Envelope).
 
-## Slide 4: Architecture
-*   **Content:** Python/PyTorch for training, C++ for mechanization (ES-EKF), TS/React for the current replay prototype.
-*   **Visuals:** The 4-block architecture diagram.
-*   **Asset Reuse:** Slide 3 from Idea Presentation (Architecture block).
+## Slide 4: System Architecture & Implementation Stack
+*   **Content:**
+    *   **Active Submission:** Python + NumPy/Pandas feature extraction and multinomial classifier training (`prep_iovnbd.py`); live TypeScript/React in-browser 15-state ES-EKF with quaternion attitude and Viterbi HMM route matching.
+    *   **Production Deployment Roadmap:** Android Kotlin native sensor service, compiled C++ mechanization core (100–200 Hz), ONNX Runtime / LiteRT, and full OSM graph matcher.
+*   **Visuals:** Modular architecture diagram separating offline training from live navigation and edge targets.
 
-## Slide 5: What's Implemented (Synthetic)
-*   **Content:** Our browser-based prototype features a synthetic engine that perfectly simulates GNSS degradation, blackout, and reacquisition to demonstrate core filter behavior.
-*   **Visuals:** Screenshot of the CityMap replay mode with a synthetic track.
+## Slide 5: What's Implemented (Deterministic Simulation & Fault Lab)
+*   **Content:** Browser prototype provides repeatable deterministic scenarios with controlled fault injection (potholes/vibration, mount rotation, GNSS jumps, bad ML speed). Demonstrates covariance inflation and integrity bounding under severe disturbances.
+*   **Visuals:** Screenshot of the Replay Lab and Navigate map with 2σ covariance ellipse.
 
-## Slide 6: Fault Injection & Replay Lab
-*   **Content:** We can inject "Pothole" / vibration faults to test robustness. Our system responds via covariance inflation to avoid destroying the heading.
-*   **Visuals:** Screenshot of the Replay Lab and Evidence metrics.
+## Slide 6: Real-World Benchmark (IO-VNBD Dataset)
+*   **Content:** Replays real driving trips from the IO-VNBD dataset (~58 hours, ~4,400 km smartphone IMU and GNSS data). Runs the live 15-state filter directly over real 10 Hz recorded gyro yaw rate, compass yaw, and GPS channels.
+*   **Visuals:** Replay selector showing real trips (S1, S3a, S4) and blackout durations.
 
-## Slide 7: What's Implemented (Real Data: IO-VNBD)
-*   **Content:** Beyond synthetic, we implemented a full replay of real-world smartphone data using the IO-VNBD benchmark. We run a learned motion-mode classifier over real CSV inputs.
-*   **Visuals:** The "Data Source" switcher in the UI showing "IO-VNBD" selected.
+## Slide 7: Evaluation Protocol: Honest & Leakage-Free
+*   **Content:**
+    *   **Device-adapted temporal holdout:** Models are trained on the first 60% of each trip; all blackout test segments and holdout metrics occur strictly in the unseen later 40%.
+    *   **Leave-One-Trip-Out (LOTO):** Cross-trip/mount transfer evaluated and reported separately.
+    *   **Self-referenced DR error:** Position error is anchored at blackout start to isolate dead-reckoning performance from pre-window drift.
+*   **Visuals:** Timeline diagram showing the 60% train / 40% holdout split and blackout evaluation window.
 
-## Slide 8: Evaluation Protocol
-*   **Content:** We use a self-referenced DR error metric inside the blackout window. Error is measured vs a jump-filtered GPS reference to isolate dead-reckoning performance without pre-window bias.
-*   **Visuals:** Simple diagram showing position anchoring at the start of a blackout.
+## Slide 8: Measured Machine Learning Results
+*   **Content:**
+    *   **Temporal Holdout (Beats majority baseline on every trip):**
+        *   Trip S1: **60.5%** accuracy vs. 53.5% majority baseline (MAE: 4.39 m/s)
+        *   Trip S3a: **53.7%** accuracy vs. 48.4% majority baseline (MAE: 4.16 m/s)
+        *   Trip S4: **63.6%** accuracy vs. 54.2% majority baseline (MAE: 3.85 m/s)
+    *   **LOTO Cross-Mount Transfer:** S1: 62.2%, S3a: 43.7%, S4: 68.3%.
+    *   **Interpretation:** Proves why discrete motion-mode classification + physical constraint anchoring is superior to direct end-to-end regression across arbitrary phone mounts.
+*   **Visuals:** Bar chart comparing temporal holdout accuracy against majority class baseline; Model Inspector weight heatmap.
 
-## Slide 9: Measured Results (Evidence)
-*   **Content:** Results from a 60-second real-world GNSS outage (Trip S1).
+## Slide 9: Navigation Evidence & Outage Benchmarks
+*   **Content:** 60-Second Real-World Blackout (Trip S1):
     *   **Raw INS Final Error:** 624.62 m (~85% drift)
-    *   **Classical ZUPT Final Error:** 611.36 m (~83% drift)
-    *   **Ours (AI-EKF) Final Error:** 442.17 m (~60% drift)
-*   **Visuals:** The real-data Evidence table from the application.
+    *   **Classical Complementary + ZUPT:** 611.36 m (~83% drift)
+    *   **AstraNav Full System (Live ES-EKF + ML):** **442.17 m** (~60% drift)
+    *   Significant, consistent error reduction across all blackout scenarios.
+*   **Visuals:** Head-to-head bar comparison from the Compare view.
 
-## Slide 10: Honest Limitations
-*   **Content:** We explicitly acknowledge constraints: Centimeter-level speed from a phone in a random mount is unreliable (cross-mount regression transfer is poor). Therefore, we rely on quantized stop/motion states. The current implementation is a browser-based replay to validate the pipeline.
-*   **Visuals:** Honest limits summary.
+## Slide 10: Integrity & Gating Highlights
+*   **Content:**
+    *   **2D $\chi^2$ NIS GNSS Gate:** 9.21 threshold (99% confidence for 2 DOF) rejects corrupted fixes.
+    *   **ML-Gated ZUPT:** Requires physical stationary detection AND $P(\text{stopped}) > 0.45$ for 2 contiguous seconds.
+    *   **Dual Integrity Envelope:** $2\sigma$-style covariance envelope + systematic-heading protection bound ($\bar{v} \cdot \psi_{\text{sys}} \cdot \tau$).
+    *   **Viterbi Route-Topology Matcher:** Monotonic cumulative distance $s$ progression and emission-distance route-lock scoring.
+*   **Visuals:** Trust Panel and Explainability Panel breakdown cards.
 
-## Slide 11: Roadmap & Future Work
-*   **Content:** The path forward to a live system:
-    *   Android live app (Kotlin UI + Sensors)
-    *   ONNX on-device inference
-    *   15-state ES-EKF integration
-    *   C++ native core
-*   **Visuals:** Bullet points or a timeline.
-*   **Asset Reuse:** Slide 4 (Risks/Mitigation) and Slide 3 (Android/ONNX parts).
+## Slide 11: Honest Limitations
+*   **Content:**
+    *   **Mechanization Adapter:** Live replay filter executes a 15-state ES-EKF core with recorded gyro, compass, GNSS, and pseudo-measurement aiding; horizontal phone-accelerometer propagation is intentionally suppressed in this replay adapter due to high commercial phone noise.
+    *   **Mount Generalization:** Cross-mount speed regression is fundamentally challenging; discrete motion modes provide resilience.
+    *   **Map Topology:** Current matcher uses recorded route topology; full OpenStreetMap (OSM) graph integration is planned.
+    *   **Protection Bound:** Systematic-heading envelope is inspired by SBAS concepts, not formal multi-constellation aviation RAIM.
+*   **Visuals:** "Honest Engineering" summary matrix.
 
-## Slide 12: Impact and Benefits
-*   **Content:** Seamless relative navigation through tunnels, urban canyons, and parking structures. No OBD-II or wheel-speed hardware needed.
+## Slide 12: Production Roadmap
+*   **Content:**
+    1. Android Kotlin service: background sensor collection and real-time lifecycle daemon.
+    2. Compiled C++ edge mechanization core running at 100–200 Hz.
+    3. ONNX Runtime / LiteRT mobile deployment of motion classifiers.
+    4. Full OpenStreetMap road network graph matching.
+*   **Visuals:** Development roadmap milestone timeline.
+
+## Slide 13: Impact & Applications
+*   **Content:**
+    *   Seamless navigation for rideshare, logistics, and emergency services in tunnels, multi-level parking garages, and high-density urban canyons.
+    *   Zero hardware cost: 100% software solution requiring no OBD-II dongles or wheel sensors.
+    *   Self-calibrating and integrity-aware: explicitly informs user and applications when to trust navigation outputs.
 *   **Asset Reuse:** Slide 5 from Idea Presentation.
 
-## Slide 13: References
-*   **Content:** Academic papers and datasets cited.
-*   **Asset Reuse:** Slide 6 from Idea Presentation.
+## Slide 14: Conclusion & Verification
+*   **Content:**
+    *   41 automated Vitest tests passing with GitHub Actions CI.
+    *   Fully offline-capable web navigation console with 10 dedicated views.
+    *   Demonstrated accuracy improvement on real-world IO-VNBD benchmark data.

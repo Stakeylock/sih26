@@ -1,7 +1,7 @@
 # Test checklist
 Run what applies to your change before claiming done. All commands from repo root.
 
-- [ ] `npm test` — 13 tests must pass (baseline, do not break).
+- [ ] `npm test` — 41 tests must pass (10 ES-EKF + 13 simulation + 7 map-match + 11 runlog).
 - [ ] `npm run build` — typecheck + production build must succeed.
 - [ ] `python tools/prep_iovnbd.py` — regenerates `public/data/*.json`; error metrics
       must stay physically plausible (final errors < 1000 m, drift % < 200) and

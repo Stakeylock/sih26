@@ -78,6 +78,16 @@ export function ChartsPanel({ run, t, onSeek }: {
 
 ## LOG (append-only, newest first)
 
+- 2026-09-19 07:05 — Antigravity: PRE-SUBMISSION AUDIT & P0/P1 FIXES COMPLETE.
+  (1) Viterbi Candidate Builder (`mapmatch.ts`): Fixed `CandidatePoint.s` bug where `accum` reset to 0 on emit and distance was double-counted between non-consecutive points. Distance is now measured between consecutive route steps, and `s` monotonically increases along route. Added explicit assertions in `mapmatch.test.ts`.
+  (2) GNSS NIS Gating (`esekf.ts`): Converted `updateGnss()` from 3D to genuine 2D (x, y) planar update, making it dimensionally consistent with the 2-DOF χ²(2, 0.99) = 9.21 gate.
+  (3) ML-gated ZUPT (`liveeskf.ts`): Wired `ch.pStop` so hard ZUPT/ZARU strictly requires both physical stationary detection and learned P(stopped) > 0.45 for 2 continuous seconds, aligning live execution with offline benchmark claims.
+  (4) Terminology & Engineering Honesty: Clarified mechanization note ("15-state ES-EKF core with recorded gyro/compass/GNSS and pseudo-measurement aiding; horizontal phone-accelerometer propagation is intentionally suppressed in this replay adapter"); changed "SBAS-style protection level" to "systematic-heading protection bound" / "SBAS-inspired protection term"; changed 95% bound to "2σ-style covariance envelope"; updated TrustPanel and CityMap to label route matching as "ROUTE LOCK" (emission-distance based, route-topology matcher; full OSM graph is future work).
+  (5) Mounted ComparatorView: Added "Compare" view with Scale icon in `App.tsx` and `CommandPalette.tsx` (10 views total).
+  (6) GitHub Actions CI: Added `.github/workflows/ci.yml` running `npm test` and `npm run build` on push and PR.
+  (7) Stale Documentation Synchronized: Fully updated `README.md`, `docs/deck-notes.md`, `docs/video-shotlist.md`, `docs/final-ppt-outline.md`, and `docs/test-checklist.md` with current 41 tests, real IO-VNBD pipeline, Python+NumPy training stack (no PyTorch/C++ overclaims for current build), and exact evaluation metrics (device-adapted temporal holdout + separate LOTO).
+  Verified: tsc 0, 41/41 tests pass, npm run build ✓.
+
 - 2026-09-19 04:47 — Antigravity: AUDIT #3/#4 + §15 COMPARATOR COMPLETE. (1) Audit #3 (empty states): DiagnosticsView now shows "Switch to Real Data →" action button when in synthetic mode (no dead-end for judges). (2) Audit #4 (sortable tables): RunLibrary Outage+OursFinal columns are now click-to-sort (↑/↓ toggle, third click clears). Empty state row now has a "Clear Filters" action button. (3) §15 COMPARATOR VIEW: new `src/components/ComparatorView.tsx` — A (Classical EKF) vs B (AstraNav full) with proportional bar gauges showing delta %, SVG error bar chart across all estimators (INS/Classical/Ours/Live), winner verdict banner, and protocol note. Uses real `finalErrors` from `run.iovnbd` or synthetic fallback from snapshots. Zero deps, all tokens from styleguide. CSS appended as `/* === antigravity: ComparatorView === */`. Verified: tsc 0, 41/41, build ✓.
   [REQUEST] @Buffy: Mount `ComparatorView` in App.tsx as a new nav item "Compare" (e.g., GitCompare or Scale icon). Prop: `{ replay }`. Should appear after "Experiments" in the nav order.
 

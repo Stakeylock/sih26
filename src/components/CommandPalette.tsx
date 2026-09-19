@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, BrainCircuit, Command, Database, FlaskConical, FlaskRound,
-  FolderOpen, Gauge, GitBranch, Navigation2, Play, SlidersHorizontal, Search,
+  FolderOpen, Gauge, GitBranch, Navigation2, Play, Scale, SlidersHorizontal, Search,
 } from "lucide-react";
 import type { Replay } from "../hooks/useReplay";
 
@@ -11,7 +11,7 @@ import type { Replay } from "../hooks/useReplay";
  * keyboard driven). Typical of polished engineering consoles; supports the
  * demo (judges can jump anywhere instantly) and power users.
  *
- * Actions: jump to any of the 9 views · play/pause · restart · 2-min demo ·
+ * Actions: jump to any of the 10 views · play/pause · restart · 2-min demo ·
  * switch to IO-VNBD segments.
  */
 type Ctx = {
@@ -36,6 +36,7 @@ const VIEW_ITEMS: [string, string, React.ComponentType<{ size?: number }>][] = [
   ["system", "Architecture", GitBranch],
   ["calibration", "Calibration", SlidersHorizontal],
   ["experiments", "Experiments", FlaskRound],
+  ["compare", "Compare", Scale],
   ["data", "Data", Database],
   ["library", "Run Library", FolderOpen],
   ["diagnostics", "Diagnostics", Gauge],
