@@ -146,7 +146,7 @@ describe("buildJudgeReportHtml — estimator rows match finalErrors", () => {
   it("includes the live row when run.iovnbd.live is present", () => {
     const run = makeIovnbdRun();
     const html = buildJudgeReportHtml(run);
-    expect(html).toContain("Live in-browser");
+    expect(html).toContain("in the browser");
     expect(html).toContain(`${run.iovnbd!.live.final.toFixed(1)} m`); // 381.0 m
   });
 });

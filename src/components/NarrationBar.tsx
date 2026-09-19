@@ -23,22 +23,22 @@ export function NarrationBar({
   const title = callout
     ? callout.title
     : isDenied
-      ? "GNSS DENIED — DEAD RECKONING ACTIVE"
+      ? "GNSS DENIED, DEAD RECKONING ACTIVE"
       : isReacq
-        ? "GNSS FIXES RETURNING — REACQUISITION GATE ACTIVE"
+        ? "GNSS FIXES RETURNING, REACQUISITION GATE ACTIVE"
         : isDegraded
-          ? "SATELLITE SIGNALS DEGRADED — COVARIANCE INFLATED"
-          : "NOMINAL MULTI-SENSOR NAVIGATION";
+          ? "SATELLITE SIGNALS DEGRADED, COVARIANCE INFLATED"
+          : "NOMINAL MULTISENSOR NAVIGATION";
 
   const body = callout
     ? callout.body
     : isDenied
-      ? "All satellite signals masked. 15-state ES-EKF propagates inertial mechanisation with learned motion classification and dynamic covariance bound."
+      ? "All satellite signals masked. The ES-EKF with 15 states keeps propagating inertial mechanisation with learned motion classification and a dynamic covariance bound."
       : isReacq
-        ? "Post-outage fixes detected. Innovation statistics are strictly validated before restoring nominal satellite confidence."
+        ? "Fixes are coming back after the outage. Innovation statistics are strictly validated before restoring nominal satellite confidence."
         : isDegraded
           ? "Innovation gate detected abnormal measurement residuals. Position uncertainty expanded to preserve integrity."
-          : "Nominal operations: Dual-frequency GNSS fixes fused with IMU observations; non-holonomic vehicle constraints active.";
+          : "Nominal operations: dual frequency GNSS fixes fused with IMU observations, and nonholonomic vehicle constraints active.";
 
   const stepText = callout
     ? `${String(callout.index).padStart(2, "0")} / ${String(callout.total).padStart(2, "0")}`

@@ -1,12 +1,12 @@
 /**
- * Judge Report — one-click, self-contained HTML evidence document (plan §16.2
+ * Judge Report: a one click, self contained HTML evidence document (plan §16.2
  * "report export").
  *
  * Everything embedded is REAL run data: provenance, configuration (incl.
  * ablation flags), per-branch final errors, and the evaluation protocol.
  * For own-drive BYOD and Counterfactual experiments, it provides transparent
  * disclosures of masked estimator inputs and reacquisition metrics.
- * No network, no deps — a Blob download judges can open on any machine,
+ * No network, no deps. A Blob download judges can open on any machine,
  * print, or attach to their evaluation notes.
  */
 import type { Run } from "../engine/types";
@@ -15,7 +15,7 @@ const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const fmtM = (v: number | null | undefined) =>
-  v == null || !Number.isFinite(v) ? "—" : `${v.toFixed(1)} m`;
+  v == null || !Number.isFinite(v) ? "n/a" : `${v.toFixed(1)} m`;
 
 const fmtDuration = (sec: number) => {
   const m = Math.floor(sec / 60);
@@ -38,7 +38,7 @@ export function buildJudgeReportHtml(run: Run): string {
     ? [
         { label: "Reference phone GPS track", value: "0.0 m (reference)" },
         ...(live?.final != null
-          ? [{ label: "Live in-browser 15-state ES-EKF", value: fmtM(live.final) }]
+          ? [{ label: "Live ES-EKF in the browser (15 states)", value: fmtM(live.final) }]
           : []),
         ...(cf?.deviationM != null
           ? [{ label: "Estimator final deviation vs recorded GPS", value: fmtM(cf.deviationM) }]
@@ -49,7 +49,7 @@ export function buildJudgeReportHtml(run: Run): string {
         { label: "Classical complementary + ZUPT (no ML)", value: fmtM(get("classical")) },
         { label: "AstraNav full system (offline benchmark)", value: fmtM(get("ekf")) },
         ...(live?.final != null
-          ? [{ label: "Live in-browser 15-state ES-EKF", value: fmtM(live.final) }]
+          ? [{ label: "Live ES-EKF in the browser (15 states)", value: fmtM(live.final) }]
           : []),
       ];
 
@@ -80,7 +80,7 @@ export function buildJudgeReportHtml(run: Run): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AstraNav-IDR — Judge Report — ${esc(cfg.scenario)}</title>
+<title>AstraNav-IDR Judge Report: ${esc(cfg.scenario)}</title>
 <style>
   :root { color-scheme: light; }
   body { font: 14px/1.55 "Segoe UI", system-ui, sans-serif; color: #17272b;
@@ -118,10 +118,10 @@ export function buildJudgeReportHtml(run: Run): string {
 </style>
 </head>
 <body>
-  <h1>AstraNav-IDR — Navigation Evidence Report</h1>
+  <h1>AstraNav-IDR Navigation Evidence Report</h1>
   <div class="sub">
     <span class="badge ${badgeClass}">${badgeLabel}</span>
-    Run <code>${esc(cfg.scenario)}${isIov ? ` · trip ${esc(run.iovnbd?.trip ?? "—")}` : isByod ? ` · ${esc(run.iovnbd?.trip ?? "OWN DRIVE")}` : ""}</code> · generated ${esc(now.toLocaleString())}
+    Run <code>${esc(cfg.scenario)}${isIov ? ` · trip ${esc(run.iovnbd?.trip ?? "n/a")}` : isByod ? ` · ${esc(run.iovnbd?.trip ?? "OWN DRIVE")}` : ""}</code> · generated ${esc(now.toLocaleString())}
   </div>
 
   <h2>Run provenance</h2>
@@ -130,7 +130,7 @@ export function buildJudgeReportHtml(run: Run): string {
       isByod
         ? `Own-drive smartphone recording (${esc(run.byod?.device?.platform || "Mobile device")})`
         : isIov
-          ? `IO-VNBD benchmark, trip ${esc(run.iovnbd?.trip ?? "—")}`
+          ? `IO-VNBD benchmark, trip ${esc(run.iovnbd?.trip ?? "n/a")}`
           : "Deterministic synthetic scenario"
     }</span>
     ${
@@ -144,7 +144,7 @@ export function buildJudgeReportHtml(run: Run): string {
         : ""
     }
     <b>GNSS outage</b><span>${cfg.blackout}s ${cf ? `(window ${fmtDuration(cf.start)} → ${fmtDuration(cf.start + cf.duration)})` : `(begins t+${run.scenario.start}s)`}</span>
-    <b>Reference standard</b><span>${isByod ? "Recorded phone GNSS track (reference only — not survey-grade ground truth)" : isIov ? "High-rate GNSS trajectory" : "Ground truth planar trajectory"}</span>
+    <b>Reference standard</b><span>${isByod ? "Recorded phone GNSS track (reference only, not survey grade ground truth)" : isIov ? "High rate GNSS trajectory" : "Ground truth planar trajectory"}</span>
     <b>Ablation flags</b><span>NHC ${cfg.useNHC !== false ? "on" : "OFF"} · ZUPT ${cfg.useZUPT !== false ? "on" : "OFF"} · ML aid ${cfg.useML !== false ? "on" : "OFF"} · GNSS gate ${cfg.useGNSSGate !== false ? "on" : "OFF"}</span>
     ${cfg.faults?.length ? `<b>Injected faults</b><span>${esc(JSON.stringify(cfg.faults))}</span>` : ""}
   </div>
@@ -153,14 +153,14 @@ export function buildJudgeReportHtml(run: Run): string {
     cf
       ? `<h2>Counterfactual Experiment</h2>
   <div class="kv">
-    <b>Experiment type</b><span>Counterfactual GNSS blackout on own-drive capture</span>
+    <b>Experiment type</b><span>Counterfactual GNSS blackout on an own drive capture</span>
     <b>Outage window</b><span>${fmtDuration(cf.start)} → ${fmtDuration(cf.start + cf.duration)} (${cf.duration.toFixed(1)} s)</span>
     <b>Estimator GNSS inputs masked</b><span>Position: YES · Speed: YES · Course: YES · Accuracy: YES</span>
     <b>Evaluation reference</b><span>Original recorded phone GNSS track</span>
     <b>Reference supplied to filter</b><span>NO (strictly hidden from estimator during blackout)</span>
     <b>Deviation vs recorded reference</b><span>${fmtM(cf.deviationM)}</span>
-    <b>Reacquisition relock time</b><span>${cf.timeToLock != null ? `${cf.timeToLock.toFixed(1)} s` : "—"}</span>
-    <b>Reacquisition correction jump</b><span>${cf.correctionJump != null ? `${cf.correctionJump.toFixed(1)} m` : "—"}</span>
+    <b>Reacquisition relock time</b><span>${cf.timeToLock != null ? `${cf.timeToLock.toFixed(1)} s` : "n/a"}</span>
+    <b>Reacquisition correction jump</b><span>${cf.correctionJump != null ? `${cf.correctionJump.toFixed(1)} m` : "n/a"}</span>
   </div>
   <div class="note">
     Important: The original phone GNSS track was algorithmically removed from the estimator
@@ -170,38 +170,38 @@ export function buildJudgeReportHtml(run: Run): string {
       : ""
   }
 
-  <h2>Final position error after ${cfg.blackout}s GNSS-denied window</h2>
+  <h2>Final position error after a ${cfg.blackout}s window without GNSS</h2>
   <table>
     <tr><th>Estimator</th><th style="text-align:right">Final horizontal error</th></tr>
     ${rows.map(metricRow).join("")}
   </table>
   ${
     bestVal != null && insFinal != null && insFinal > 0
-      ? `<div class="note">Error reduction vs raw INS: <b>${(((insFinal - bestVal) / insFinal) * 100).toFixed(0)}%</b> over the same outage window, same sensor stream, no tuning per-branch.</div>`
+      ? `<div class="note">Error reduction vs raw INS: <b>${(((insFinal - bestVal) / insFinal) * 100).toFixed(0)}%</b> over the same outage window, same sensor stream, no tuning per branch.</div>`
       : ""
   }
 
   <h2>Evaluation protocol</h2>
   <div class="kv">
-    <b>Error anchoring</b><span>Self-referenced: position error resets to zero at blackout start, isolating dead-reckoning drift from pre-outage error.</span>
-    <b>ML protocol</b><span>Device-adapted temporal holdout — first 60% of each trip trains, evaluation happens strictly in the unseen later 40%. Cross-mount transfer (LOTO) reported separately.</span>
+    <b>Error anchoring</b><span>Self referenced: position error resets to zero at blackout start, isolating dead reckoning drift from error carried in from before the outage.</span>
+    <b>ML protocol</b><span>Device adapted temporal holdout: the first 60% of each trip trains the model and evaluation runs strictly on the unseen later 40%. Cross mount transfer (LOTO) reported separately.</span>
     <b>GNSS integrity</b><span>χ²(2, 0.99) NIS gate at 9.21 rejects corrupted fixes before they enter the filter.</span>
-    <b>ML-gated ZUPT</b><span>Zero-velocity update fires only on physical stationary detection AND learned P(stopped) &gt; 0.45 held 2 s.</span>
+    <b>ML gated ZUPT</b><span>Zero velocity update fires only on physical stationary detection AND learned P(stopped) &gt; 0.45 held 2 s.</span>
   </div>
 
   <h2>Honest limitations</h2>
   <div class="note warn">
     Replay adapter: the live filter propagates with recorded gyro/compass channels;
     horizontal phone-accelerometer propagation is intentionally suppressed
-    (commercial-grade noise). Map matching uses the recorded route topology — a full
-    OSM road graph is future work. The systematic-heading protection bound is
+    (commercial grade noise). Map matching uses the recorded route topology. A full
+    OSM road graph is future work. The systematic heading protection bound is
     SBAS-inspired, not formal aviation RAIM. Android/ONNX deployment is a
     documented roadmap item, not part of this build.
   </div>
 
   <footer>
-    AstraNav-IDR · Team Recalibrate · SIH26168 — Intelligent Dead Reckoning ·
-    Automated Vitest test suite, CI-gated · Fully offline evidence console ·
+    AstraNav-IDR · Team Recalibrate · SIH26168 · Intelligent Dead Reckoning ·
+    Automated Vitest test suite, CI gated · Fully offline evidence console ·
     This report is machine-generated from run data at export time.
   </footer>
 </body>

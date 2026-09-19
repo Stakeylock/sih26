@@ -7,7 +7,7 @@ import type { Replay } from "../hooks/useReplay";
  *
  * Presents the REAL dataset the system runs on: per-trip quality stats and
  * paths from the IO-VNBD trips bundle, plus the blackout-segment inventory.
- * Pure presentation over bundles that are already shipped locally — no new
+ * Pure presentation over bundles that are already shipped locally. No new
  * data, no invented numbers. Honest provenance note included.
  */
 type Trip = {
@@ -122,7 +122,7 @@ export function DataView({ replay }: { replay: Replay }) {
         <span>
           Prepared offline by <span className="mono">tools/prep_iovnbd.py</span>: 10 Hz
           re-grid, 25 m/sample fix jump rejection, fix-space track rebuild, calibration
-          from the 40 s pre-outage window. Bundles ship inside the app — the demo needs
+          from the 40 s window before the outage. Bundles ship inside the app, so the demo needs
           zero network. Raw CSVs: <span className="mono">data/io-vnbd/</span> (git-LFS).
         </span>
       </footer>

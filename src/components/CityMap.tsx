@@ -288,7 +288,7 @@ export function CityMap({
   const view = `${c.x - w / 2} ${c.y - h / 2} ${w} ${h}`;
   return (
     <section className="map-surface" aria-label="Interactive navigation map">
-      {/* audit #2: first-10-seconds affordance — the map is static until
+      {/* audit #2: affordance for the first 10 seconds. The map stays static until
           playback starts; tell the judge exactly which key moves it */}
       {!playing && (
         <div className="play-hint" role="status">
@@ -382,7 +382,7 @@ export function CityMap({
         {layers.ekf && (
           <>
             {/* halo pass (wide low-opacity underlay) keeps the primary trace
-                legible over the reference dashes — no SVG glow filter needed */}
+                legible over the reference dashes, so no SVG glow filter is needed */}
             <path
               d={path(trails.map((s) => s.ekf))}
               stroke="#62cbd4"
@@ -416,9 +416,9 @@ export function CityMap({
               strokeWidth="3.5"
               fill="none"
               strokeLinecap="round"
-              // dashed in replay mode: route-topology match, not a road network
+              // dashed in replay mode: route topology match, not a road network
               strokeDasharray={iov ? "7 5" : undefined}
-              // §7.3: opacity carries the CURRENT route-lock confidence —
+              // §7.3: opacity carries the CURRENT route lock confidence.
               // a measurement (HMM emission), not decoration; dims honestly
               // when the filter leaves the topology
               opacity={
@@ -539,7 +539,7 @@ export function CityMap({
                     reference: "Reference route",
                     ins: "INS / dead reckoning",
                     ekf: "ES-EKF + ML aiding",
-                    map: "Map-assisted output",
+                    map: "Map assisted output",
                     classical: "Classical EKF comparator",
                     gnss: "GNSS observations",
                     bound: iov ? "Live filter 95% integrity bound" : "Simulated 95% bound",
@@ -559,7 +559,7 @@ export function CityMap({
             {snapshot.state === "DENIED"
               ? "GNSS OUTAGE · LIVE ES-EKF ACTIVE"
               : iov
-                ? "REAL GNSS TRACK · LIVE FILTER ON-DEVICE"
+                ? "REAL GNSS TRACK · LIVE FILTER ON DEVICE"
                 : "CURRENT ROUTE"}
           </small>
           <strong>
@@ -614,7 +614,7 @@ export function CityMap({
         <div className="north">
           <Compass size={18} />N
         </div>
-        {/* buffy: true scale bar — local frame is ENU meters, so the bar is
+        {/* buffy: true scale bar. The local frame is ENU meters, so the bar is
             exact for the data (streets are stylized). Picks a round distance
             near 1/5 of the shown width; width% keeps it honest at any zoom. */}
         {(() => {
@@ -630,13 +630,13 @@ export function CityMap({
       </div>
       <div className="map-bottom">
         <div className="map-legend">
-          {/* N2 (Antigravity audit): legend is the always-on decoder ring —
+          {/* N2 (Antigravity audit): legend is the decoder ring that is always on.
               every swatch mirrors its trace's color AND dash pattern so the
               5 traces are explainable without opening any toggle. */}
           <span
             title={
               run.byod?.counterfactual
-                ? "Reference only — hidden from the estimator during the counterfactual outage"
+                ? "Reference only, hidden from the estimator during the counterfactual outage"
                 : "Recorded GNSS track used as the evaluation reference"
             }
           >
@@ -652,7 +652,7 @@ export function CityMap({
             <i className="cyan" />
             ES-EKF + ML
           </span>
-          <span title="Route-topology replay matcher; full OSM graph is future work">
+          <span title="Route topology replay matcher; full OSM graph is future work">
             <i className="lime dashed" />
             Route match
           </span>

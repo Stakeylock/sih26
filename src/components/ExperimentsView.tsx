@@ -33,7 +33,7 @@ function winner(row: SegRow): "ins" | "classical" | "ekf" | null {
 }
 
 function DeltaBadge({ base, ours }: { base: number | null; ours: number | null }) {
-  if (base == null || ours == null) return <span className="exp-na">—</span>;
+  if (base == null || ours == null) return <span className="exp-na">n/a</span>;
   const pct = ((ours - base) / base) * 100;
   const better = pct < 0;
   return (
@@ -50,7 +50,7 @@ function MetricCell({
   m: { final: number; rmse: number; drift: number; p95: number } | null;
   isWinner: boolean;
 }) {
-  if (!m) return <td className="exp-na" colSpan={2}>—</td>;
+  if (!m) return <td className="exp-na" colSpan={2}>n/a</td>;
   return (
     <>
       <td className={isWinner ? "exp-winner" : ""}>{m.final.toFixed(1)} m</td>
@@ -69,7 +69,7 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
 
   // Build rows from iovnbdList + any already-loaded run data
   // iovnbdList gives us name/id; actual metrics come from run.iovnbd when available.
-  // We need the full segments list — request via hook if available, else show a placeholder.
+  // We need the full segments list. Request it via hook if available, else show a placeholder.
   const { iovnbdList, run, iovReady } = replay;
 
   if (!iovReady) {
@@ -120,15 +120,15 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
     <div className="exp-page">
       <div className="section-header">
         <div>
-          <span className="section-label">MULTI-SEGMENT EXPERIMENTS</span>
+          <span className="section-label">MULTI SEGMENT EXPERIMENTS</span>
           <h2>Across all 5 segments.</h2>
           <p>
             Published benchmark metrics from the IO-VNBD pipeline. Select the active segment to
             populate live metrics. Errors measured inside the GNSS outage window vs reference GNSS
-            track. No estimator wins every segment — that's the honest result.
+            track. No estimator wins every segment. That is the honest result.
           </p>
         </div>
-        <span className="outline-tag">REAL-DATA EVIDENCE</span>
+        <span className="outline-tag">REAL DATA EVIDENCE</span>
       </div>
 
       {/* Summary table */}
@@ -204,7 +204,7 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
         </table>
         <p className="exp-note">
           Click a row to load that segment in the replay. Select two rows to compare side-by-side.
-          Metrics only appear for the currently loaded segment — switch segments to populate others.
+          Metrics only appear for the currently loaded segment. Switch segments to populate others.
         </p>
       </div>
 
@@ -212,7 +212,7 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
       {showCompare && (
         <div className="exp-compare">
           <div className="panel-title" style={{ marginBottom: 12 }}>
-            <span>SIDE-BY-SIDE COMPARISON</span>
+            <span>SIDE BY SIDE COMPARISON</span>
             <button
               className="icon"
               onClick={() => { setCompareA(null); setCompareB(null); }}
@@ -255,7 +255,7 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
                 {rowA && rowB && rowA.ekf && rowB.ekf && (
                   <div className="exp-compare-delta">
                     <span className="exp-compare-delta-label">Ours final error</span>
-                    <span className="exp-compare-delta-val">{row.ekf?.final.toFixed(1) ?? "—"} m</span>
+                    <span className="exp-compare-delta-val">{row.ekf ? `${row.ekf.final.toFixed(1)} m` : "n/a"}</span>
                   </div>
                 )}
               </div>
@@ -267,11 +267,11 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
       {/* buffy × Claude: Monte-Carlo robustness card (plan P3, scoped).
           Answers the judge question "is your demo run just a lucky seed?"
           by re-running the SAME config across independent seeds. Synthetic
-          simulator only — real-data robustness is the segment table above. */}
+          simulator only. Real data robustness is the segment table above. */}
       <div className="exp-mc">
         <div className="exp-mc-head">
           <span className="exp-mc-title">
-            <Dices size={15} /> ROBUSTNESS — SEED SWEEP
+            <Dices size={15} /> ROBUSTNESS: SEED SWEEP
           </span>
           {replay.source === "synthetic" ? (
             <button
@@ -295,11 +295,11 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
                 }, 30);
               }}
             >
-              {mc?.running ? "Sweeping 12 seeds…" : "Run 12-seed sweep"}
+              {mc?.running ? "Sweeping 12 seeds…" : "Run 12 seed sweep"}
             </button>
           ) : (
             <span className="exp-mc-note">
-              Seed sweep applies to the synthetic simulator — real-data
+              Seed sweep applies to the synthetic simulator. Real data
               robustness is the 5-segment table above.
             </span>
           )}
@@ -348,7 +348,7 @@ export function ExperimentsView({ replay }: { replay: Replay }) {
         <p>
           <strong>Protocol:</strong> each segment is drawn from the unseen latter portion of its
           trip (train/test temporal split at 60%). Reference = GNSS track. Errors are
-          self-referenced at blackout start. Cross-mount transfer is weak (R²&nbsp;≈&nbsp;−0.03 to
+          self-referenced at blackout start. Cross mount transfer is weak (R²&nbsp;≈&nbsp;−0.03 to
           −0.33); reported honestly. No estimator dominates every segment.
         </p>
       </div>

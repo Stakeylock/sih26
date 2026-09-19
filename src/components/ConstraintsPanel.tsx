@@ -21,14 +21,14 @@ export function ConstraintsPanel({
       reason:
         snapshot.gnss == null
           ? snapshot.state === "DENIED"
-            ? "Outage band active — no fixes"
+            ? "Outage band active, so no fixes"
             : "No fix at this sample"
           : snapshot.gnssAccepted
             ? snapshot.gnssResidual != null
-              ? `Innovation ${snapshot.gnssResidual.toFixed(1)} m — within gate`
+              ? `Innovation ${snapshot.gnssResidual.toFixed(1)} m, inside the gate`
               : "Fix accepted"
             : snapshot.gnssResidual != null
-              ? `Innovation ${snapshot.gnssResidual.toFixed(1)} m — outside gate`
+              ? `Innovation ${snapshot.gnssResidual.toFixed(1)} m, outside the gate`
               : "Fix rejected by ES-EKF gate",
     },
     {
@@ -37,12 +37,12 @@ export function ConstraintsPanel({
         snapshot.state === "TRUSTED" || snapshot.state === "DEGRADED",
       reason:
         snapshot.state === "TRUSTED"
-          ? "GNSS state TRUSTED — velocity accepted"
+          ? "GNSS trusted, velocity accepted"
           : snapshot.state === "DEGRADED"
-            ? "GNSS state DEGRADED — reduced weight"
+            ? "GNSS degraded, running at reduced weight"
             : snapshot.state === "REACQUIRING"
               ? "Reacquisition check in progress"
-              : "GNSS denied — no velocity aiding",
+              : "GNSS denied, so no velocity aiding",
     },
     {
       label: "ML speed",
@@ -53,9 +53,9 @@ export function ConstraintsPanel({
             ? `${(snapshot.mlSpeed * 3.6).toFixed(1)} km/h · ${(snapshot.mlConfidence * 100).toFixed(0)}% confidence`
             : "Ready but not applied this sample"
           : snapshot.mlQuality === "SUSPENDED"
-            ? "Temporarily suspended — fault recovery"
+            ? "Suspended for now while a fault clears"
             : snapshot.mlQuality === "OOD"
-              ? "Out-of-distribution — aiding withheld"
+              ? "Out of distribution, so aiding is withheld"
               : "ML odometer disabled in config",
     },
     {
@@ -63,18 +63,18 @@ export function ConstraintsPanel({
       accepted: snapshot.speed === 0,
       reason:
         snapshot.speed === 0
-          ? "Vehicle stopped — zero velocity update applied"
-          : `Speed ${(snapshot.speed * 3.6).toFixed(1)} km/h — ZUPT inactive`,
+          ? "Vehicle stopped, zero velocity update applied"
+          : `Speed ${(snapshot.speed * 3.6).toFixed(1)} km/h, ZUPT inactive`,
     },
     {
       label: "Road heading",
       accepted: snapshot.mapUsed,
       reason: snapshot.mapUsed
         ? source === "synthetic"
-          ? `Map match applied — ${(snapshot.candidates[0].probability * 100).toFixed(0)}% top candidate`
-          : "Viterbi route-topology match locked on live track"
+          ? `Map match applied, top candidate at ${(snapshot.candidates[0].probability * 100).toFixed(0)}%`
+          : "Viterbi route topology match locked on the live track"
         : source === "synthetic"
-          ? "Confidence gate closed — map feedback paused"
+          ? "Confidence gate closed, map feedback paused"
           : "Route matching disabled or no match",
     },
   ];

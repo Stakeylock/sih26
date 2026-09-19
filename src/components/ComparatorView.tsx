@@ -3,10 +3,10 @@ import type { Replay } from "../hooks/useReplay";
 
 /* ── §15 Before/After Comparator ────────────────────────────────────────────
    A = Classical EKF (ablation comparator, no ML aiding)
-   B = AstraNav full system (ES-EKF + ML virtual-odometer + ZUPT/NHC)
+   B = AstraNav full system (ES-EKF with ML virtual odometer, plus ZUPT and NHC)
    Data comes from run.iovnbd.finalErrors when real data is loaded,
    or from run.snapshots for synthetic (final position error estimate).
-   No invented numbers — all values are explicitly labelled by source.
+   No invented numbers. Every value is labelled with its source.
 ────────────────────────────────────────────────────────────────────────────── */
 
 type MetricRow = {
@@ -19,7 +19,7 @@ type MetricRow = {
 
 /** Bar gauge: renders A and B as proportional fill bars. */
 function DiffBar({ a, b, lowerIsBetter }: { a: number | null; b: number | null; lowerIsBetter: boolean }) {
-  if (a == null || b == null) return <span className="comp-na">—</span>;
+  if (a == null || b == null) return <span className="comp-na">n/a</span>;
   const max = Math.max(a, b, 0.001);
   const aPct = (a / max) * 100;
   const bPct = (b / max) * 100;
@@ -53,7 +53,7 @@ function DiffBar({ a, b, lowerIsBetter }: { a: number | null; b: number | null; 
   );
 }
 
-/** Tiny SVG final-error chart — bars for each estimator in the current segment. */
+/** Tiny SVG final error chart with one bar per estimator in the current segment. */
 function ErrorChart({ ins, classical, ekf, live }: {
   ins: number | null;
   classical: number | null;
@@ -156,7 +156,7 @@ export function ComparatorView({ replay }: { replay: Replay }) {
           <h2>AstraNav vs Classical EKF.</h2>
           <p>
             A = Classical EKF (GNSS + INS, no ML aiding).&nbsp;
-            B = AstraNav full system (ES-EKF + motion-mode ML + ZUPT/NHC/map).
+            B = AstraNav full system (ES-EKF with motion mode ML, plus ZUPT, NHC and map).
           </p>
         </div>
         {isReal ? (
@@ -192,7 +192,7 @@ export function ComparatorView({ replay }: { replay: Replay }) {
                 ? "AstraNav wins on all metrics"
                 : bWins > totalMetrics / 2
                 ? `AstraNav leads on ${bWins}/${totalMetrics} metrics`
-                : `Mixed result — ${bWins}/${totalMetrics} metrics improved`}
+                : `Mixed result: ${bWins}/${totalMetrics} metrics improved`}
             </strong>
             <div className="comp-verdict-sub">
               {isReal
@@ -246,16 +246,16 @@ export function ComparatorView({ replay }: { replay: Replay }) {
       <div className="comp-legend">
         <div className="comp-legend-item">
           <span className="comp-legend-dot" style={{ background: "var(--coral)" }} aria-hidden />
-          <span>A — Classical EKF</span>
+          <span>A: Classical EKF</span>
         </div>
         <div className="comp-legend-item">
           <span className="comp-legend-dot" style={{ background: "var(--cyan)" }} aria-hidden />
-          <span>B — AstraNav (Ours)</span>
+          <span>B: AstraNav (Ours)</span>
         </div>
         {run.iovnbd?.live && (
           <div className="comp-legend-item">
             <span className="comp-legend-dot" style={{ background: "var(--lime)" }} aria-hidden />
-            <span>Live in-browser ES-EKF</span>
+            <span>Live ES-EKF in the browser</span>
           </div>
         )}
       </div>
@@ -265,9 +265,9 @@ export function ComparatorView({ replay }: { replay: Replay }) {
         <strong>Protocol:</strong> Temporal train/test split at 60% of each trip. Errors are
         self-referenced at blackout start, measured vs GNSS reference inside the blackout window.
         Classical = GNSS + INS fusion, no ML aiding, no ZUPT tuning.
-        AstraNav = full system with learned motion-mode classifier, duration-gated ZUPT, NHC, and
+        AstraNav = full system with learned motion mode classifier, ZUPT gated on stop duration, NHC, and
         optionally Viterbi map-matching (ablation toggles in Replay Lab).
-        {!isReal && <span className="comp-note-synth"> Synthetic values are estimated from simulation — load a real IO-VNBD segment for benchmark numbers.</span>}
+        {!isReal && <span className="comp-note-synth"> Synthetic values are estimated from simulation. Load a real IO-VNBD segment for benchmark numbers.</span>}
       </div>
     </div>
   );

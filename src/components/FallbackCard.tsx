@@ -6,9 +6,9 @@ import type { Snapshot } from "../engine/types";
  *
  * Trigger is REAL state, not decoration: shown while GNSS is DENIED *and*
  * either the learned aiding is suspended (OOD) or the 95% bound has grown
- * past 60 m — the worst legitimate operating points. The card states plainly
+ * past 60 m, the worst legitimate operating points. The card states plainly
  * what is still running, what is not, and how fast uncertainty is growing.
- * It never hides the degradation — that honesty is the differentiator.
+ * It never hides the degradation. That honesty is the differentiator.
  */
 export function FallbackCard({ snapshot }: { snapshot: Snapshot }) {
   const mlSuspended = snapshot.mlOod || snapshot.mlQuality === "OOD";
@@ -36,16 +36,16 @@ export function FallbackCard({ snapshot }: { snapshot: Snapshot }) {
           <small>STILL ACTIVE</small>
           <ul>
             <li>INS mechanisation (gyro + calibrated compass)</li>
-            {snapshot.speed > 0.5 && <li>Learned motion-mode aiding {mlSuspended ? "(confidence low — deweighted)" : ""}</li>}
+            {snapshot.speed > 0.5 && <li>Learned motion mode aiding {mlSuspended ? "(confidence low, so deweighted)" : ""}</li>}
             {!mlSuspended && <li>NHC lateral constraint</li>}
-            <li>Duration-gated ZUPT at genuine stops</li>
+            <li>ZUPT firing only at genuine stops</li>
           </ul>
         </div>
         <div>
           <small>SUSPENDED / UNAVAILABLE</small>
           <ul>
             <li>GNSS position &amp; velocity {snapshot.rejected ? "(fixes rejected by NIS gate)" : "(masked)"}</li>
-            {mlSuspended && <li>ML speed (OOD — suspended to avoid corruption)</li>}
+            {mlSuspended && <li>ML speed (OOD, suspended to avoid corruption)</li>}
             <li>Road matching (no map in replay mode)</li>
           </ul>
         </div>

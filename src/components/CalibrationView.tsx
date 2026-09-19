@@ -171,8 +171,8 @@ export function CalibrationView({ replay }: { replay: Replay }) {
       <div className="cal-page">
         <div className="section-header">
           <div>
-            <span className="section-label">IO-VNBD REAL-DATA CALIBRATION</span>
-            <h2>Sensor-to-frame alignment.</h2>
+            <span className="section-label">IO-VNBD REAL DATA CALIBRATION</span>
+            <h2>Sensor to frame alignment.</h2>
             <p className="cal-intro">
               Calibration estimated from the 40&nbsp;s of GNSS-aided driving immediately before the
               outage. Gyro bias removed from integration; heading offset rotates the phone axes into
@@ -201,7 +201,7 @@ export function CalibrationView({ replay }: { replay: Replay }) {
             label="Gyro bias"
             value={calib.gyroBias.toFixed(5)}
             unit=" rad/s"
-            sub="Yaw-axis drift per second"
+            sub="Yaw axis drift per second"
             tone="lime"
           />
           <StatTile
@@ -216,7 +216,7 @@ export function CalibrationView({ replay }: { replay: Replay }) {
         <div className="cal-lower">
           <div className="cal-diagram-card">
             <div className="panel-title" style={{ marginBottom: 16 }}>
-              <span><Compass size={14} /> PHONE-TO-VEHICLE FRAME</span>
+              <span><Compass size={14} /> PHONE TO VEHICLE FRAME</span>
               <small>YAW AXIS</small>
             </div>
             <FrameDiagram headingOffsetDeg={headingDisplay} />
@@ -234,8 +234,8 @@ export function CalibrationView({ replay }: { replay: Replay }) {
               <div className="cal-protocol-row">
                 <span className="cal-protocol-step">01</span>
                 <div>
-                  <strong>Pre-outage window</strong>
-                  <p>40&nbsp;s of GNSS-aided driving before the blackout provides a known-good reference track for calibration.</p>
+                  <strong>Window before the outage</strong>
+                  <p>40&nbsp;s of GNSS aided driving before the blackout provides a known good reference track for calibration.</p>
                 </div>
               </div>
               <div className="cal-protocol-row">
@@ -256,7 +256,7 @@ export function CalibrationView({ replay }: { replay: Replay }) {
                 <span className="cal-protocol-step">04</span>
                 <div>
                   <strong>Alignment score at playhead</strong>
-                  <p>{(snap.alignment * 100).toFixed(0)}% — heading agreement between the EKF estimate and the last accepted GNSS velocity bearing.</p>
+                  <p>{(snap.alignment * 100).toFixed(0)}% heading agreement between the EKF estimate and the last accepted GNSS velocity bearing.</p>
                 </div>
               </div>
             </div>
@@ -294,7 +294,7 @@ export function CalibrationView({ replay }: { replay: Replay }) {
           label="Alignment (live)"
           value={`${(snap.alignment * 100).toFixed(0)}`}
           unit="%"
-          sub="EKF map-heading agreement"
+          sub="EKF map heading agreement"
           tone={snap.alignment >= 0.9 ? "lime" : snap.alignment >= 0.5 ? "amber" : "coral"}
         />
         <StatTile
@@ -309,7 +309,7 @@ export function CalibrationView({ replay }: { replay: Replay }) {
       <div className="cal-lower">
         <div className="cal-diagram-card">
           <div className="panel-title" style={{ marginBottom: 16 }}>
-            <span><Compass size={14} /> PHONE-TO-VEHICLE FRAME</span>
+            <span><Compass size={14} /> PHONE TO VEHICLE FRAME</span>
             <small>YAW AXIS</small>
           </div>
           <FrameDiagram headingOffsetDeg={0} />

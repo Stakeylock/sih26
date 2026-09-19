@@ -12,7 +12,7 @@ export function DiagnosticsView({ replay }: { replay: Replay }) {
         <div>
           <span className="section-label">DIAGNOSTICS</span>
           <h2>Sensor &amp; System Health.</h2>
-          <p>Real-time constraints and model performance metrics.</p>
+          <p>Realtime constraints and model performance metrics.</p>
         </div>
         {isReal ? (
           <span className="run-badge run-badge-real" style={{ alignSelf: "flex-start" }}>REAL DATA</span>
@@ -65,7 +65,7 @@ export function DiagnosticsView({ replay }: { replay: Replay }) {
                 <span className="diag-stat-val mono">{String(iov.modelInfo.holdout)}</span>
               </div>
               <div className="diag-stat">
-                <span className="diag-stat-label">CROSS-MOUNT</span>
+                <span className="diag-stat-label">CROSS MOUNT</span>
                 <span className="diag-stat-val mono">{String(iov.modelInfo.loto)}</span>
               </div>
               <div className="diag-note">
@@ -95,7 +95,7 @@ export function DiagnosticsView({ replay }: { replay: Replay }) {
         <div className="diag-card">
           <div className="diag-card-head">
             <Server size={14} className="diag-icon" />
-            <h3>Live Filter (In-Browser)</h3>
+            <h3>Live Filter (In Browser)</h3>
           </div>
           {isReal && iov?.live ? (
             <div className="diag-stats">

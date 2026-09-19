@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<title>AstraNav-IDR — Sensor Capture</title>
+<title>AstraNav-IDR Sensor Capture</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
@@ -49,7 +49,7 @@
 </head>
 <body>
   <h1>AstraNav<b>IDR</b> · Sensor Capture v2</h1>
-  <p class="sub">Bring Your Own Drive — record phone IMU (accel + gyro) & GPS for live in-browser dead reckoning and counterfactual GNSS outage testing. On-device only.</p>
+  <p class="sub">Bring Your Own Drive records phone IMU (accel and gyro) plus GPS for live dead reckoning in the browser and counterfactual GNSS outage testing. Everything stays on your device.</p>
 
   <div class="card" id="sensorAlert" style="display:none;"></div>
 
@@ -57,12 +57,12 @@
     <div class="row"><span class="k">STATUS</span><span class="v" id="status">IDLE <span class="pill">WAITING</span></span></div>
     <div class="row"><span class="k">ELAPSED</span><span class="v" id="elapsed">0:00</span></div>
     <div class="row"><span class="k">MOTION SAMPLES</span><span class="v" id="samples">0</span></div>
-    <div class="row"><span class="k">ACCEL (X,Y,Z)</span><span class="v" id="accel">—</span></div>
-    <div class="row"><span class="k">GYRO (X,Y,Z)</span><span class="v" id="gyro">—</span></div>
-    <div class="row"><span class="k">GPS FIX</span><span class="v" id="gps">—</span></div>
-    <div class="row"><span class="k">GPS ACCURACY</span><span class="v" id="acc">—</span></div>
-    <div class="row"><span class="k">GPS SPEED</span><span class="v" id="spd">—</span></div>
-    <div class="row"><span class="k">HEADING</span><span class="v" id="hdg">—</span></div>
+    <div class="row"><span class="k">ACCEL (X,Y,Z)</span><span class="v" id="accel">n/a</span></div>
+    <div class="row"><span class="k">GYRO (X,Y,Z)</span><span class="v" id="gyro">n/a</span></div>
+    <div class="row"><span class="k">GPS FIX</span><span class="v" id="gps">n/a</span></div>
+    <div class="row"><span class="k">GPS ACCURACY</span><span class="v" id="acc">n/a</span></div>
+    <div class="row"><span class="k">GPS SPEED</span><span class="v" id="spd">n/a</span></div>
+    <div class="row"><span class="k">HEADING</span><span class="v" id="hdg">n/a</span></div>
     <div class="bar"><i id="mem"></i></div>
     <p class="note">Keep the phone firmly mounted or held steady; drive or walk normally. Recommended: 2–5 min.</p>
   </div>
@@ -165,7 +165,7 @@
   }
 
   function gpsErr(e) {
-    $("gps").innerHTML = '<span class="bad">DENIED — ' + e.message + '</span>';
+    $("gps").innerHTML = '<span class="bad">DENIED: ' + e.message + '</span>';
   }
 
   // --- start / stop ------------------------------------------------------
@@ -221,7 +221,7 @@
           "Your browser has not provided DeviceMotion data after 2 seconds.<br/>" +
           "• Check site motion permissions in browser settings.<br/>" +
           "• On Chrome/Safari, motion sensors require a secure HTTPS context.<br/>" +
-          "• You may continue for GPS-only or try opening under HTTPS.";
+          "• You may continue for GPS only or try opening under HTTPS.";
       }
     }, 2200);
   }

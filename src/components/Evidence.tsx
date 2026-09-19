@@ -11,7 +11,7 @@ import { metrics } from "../engine/simulation";
 const labels: Record<EstimateKey, string> = {
   ins: "INS / dead reckoning",
   ekf: "ES-EKF + ML aiding",
-  map: "Map-assisted output",
+  map: "Map assisted output",
   classical: "Classical EKF comparator",
 };
 
@@ -24,7 +24,7 @@ export function exportRun(run: Run, t: number, format: "json" | "csv") {
       ? JSON.stringify(
           {
             provenance: iov
-              ? `IO-VNBD real-data replay: trip ${iov.trip}, segment ${iov.segmentId}; benchmark CSVs processed by tools/prep_iovnbd.py; estimator errors measured inside the ${run.config.blackout}s GNSS outage; reference = GNSS track. Not a validated production navigation engine.`
+              ? `IO-VNBD replay on real data: trip ${iov.trip}, segment ${iov.segmentId}; benchmark CSVs processed by tools/prep_iovnbd.py; estimator errors measured inside the ${run.config.blackout}s GNSS outage; reference = GNSS track. Not a validated production navigation engine.`
               : "synthetic planar simulation; not a validated navigation engine",
             version: 4,
             data_source: run.source ?? "synthetic",
@@ -96,7 +96,7 @@ export function exportRun(run: Run, t: number, format: "json" | "csv") {
 }
 
 export function Evidence({ replay }: { replay: Replay }) {
-  // buffy: run-library persistence (Claude's runlog REQUEST) — last save's id
+  // buffy: run-library persistence (Claude runlog REQUEST) keeps the last save id
   // for button feedback; resets per component mount, which is fine for a toast
   const [savedId, setSavedId] = useState<string | null>(null);
   const values = metrics(replay.run, replay.t),
@@ -142,7 +142,7 @@ export function Evidence({ replay }: { replay: Replay }) {
         <div className="actions">
           {/* buffy (Claude's §19 runlog REQUEST): pin this run to the local
               library so judges can revisit it; confirmation text doubles as
-              the run_id readout. localStorage only — still fully offline. */}
+              the run_id readout. localStorage only - still fully offline. */}
           <button
             className="button"
             onClick={() => {
@@ -153,7 +153,7 @@ export function Evidence({ replay }: { replay: Replay }) {
             <BookmarkPlus size={15} />
             {savedId ? "Saved ✓" : "Save run"}
           </button>
-          {/* buffy: §16.2 judge report — self-contained offline HTML evidence
+          {/* buffy: §16.2 judge report, a self-contained offline HTML evidence
               doc (provenance, metrics vs INS, protocol, limitations). */}
           <button className="button primary" onClick={() => downloadJudgeReport(replay.run)}>
             <FileText size={15} />
@@ -177,11 +177,11 @@ export function Evidence({ replay }: { replay: Replay }) {
       {replay.run.source === "byod" ? (
         <section className="iov-benchmark" data-testid="byod-benchmark">
           <div className="iov-benchmark-head">
-            <h3>{replay.isCounterfactual ? "COUNTERFACTUAL OWN-DRIVE ANALYSIS" : "OWN-DRIVE SENSOR ANALYSIS"}</h3>
+            <h3>{replay.isCounterfactual ? "COUNTERFACTUAL OWN DRIVE ANALYSIS" : "OWN DRIVE SENSOR ANALYSIS"}</h3>
             <small>
               {replay.isCounterfactual
-                ? `Outage: ${replay.byodCounterfactual?.outageDuration}s at t+${replay.byodCounterfactual?.outageStart}s · ${replay.snapshot.distance.toFixed(0)} m inside denial`
-                : `Recorded real-world phone drive · ${(replay.run.byod?.duration ?? replay.run.duration).toFixed(0)}s total duration`}
+                ? `Outage: ${replay.byodCounterfactual?.outageDuration}s at t+${replay.byodCounterfactual?.outageStart}s · ${replay.snapshot.distance.toFixed(0)} m while denied`
+                : `Recorded phone drive in the real world · ${(replay.run.byod?.duration ?? replay.run.duration).toFixed(0)}s total duration`}
             </small>
           </div>
           {replay.isCounterfactual && (
@@ -191,7 +191,7 @@ export function Evidence({ replay }: { replay: Replay }) {
                 <strong style={{ fontSize: "18px", color: "#6fd3e8" }}>
                   {replay.run.byod?.counterfactual?.deviationM != null
                     ? `${replay.run.byod.counterfactual.deviationM.toFixed(1)} m`
-                    : "—"}
+                    : "n/a"}
                 </strong>
                 <small style={{ fontSize: "11px", color: "#84959b" }}>Measured at end of record</small>
               </div>
@@ -200,7 +200,7 @@ export function Evidence({ replay }: { replay: Replay }) {
                 <strong style={{ fontSize: "18px", color: "#7ef0c0" }}>
                   {replay.run.byod?.counterfactual?.timeToLock != null
                     ? `${replay.run.byod.counterfactual.timeToLock.toFixed(1)} s`
-                    : "—"}
+                    : "n/a"}
                 </strong>
                 <small style={{ fontSize: "11px", color: "#84959b" }}>Time to recover 95% bound</small>
               </div>
@@ -209,7 +209,7 @@ export function Evidence({ replay }: { replay: Replay }) {
                 <strong style={{ fontSize: "18px", color: "#e8b664" }}>
                   {replay.run.byod?.counterfactual?.correctionJump != null
                     ? `${replay.run.byod.counterfactual.correctionJump.toFixed(1)} m`
-                    : "—"}
+                    : "n/a"}
                 </strong>
                 <small style={{ fontSize: "11px", color: "#84959b" }}>Snap on first accepted fix</small>
               </div>
@@ -235,14 +235,14 @@ export function Evidence({ replay }: { replay: Replay }) {
           </div>
           <small className="iov-note">
             The original phone GNSS track is used strictly as an evaluation reference for this
-            counterfactual replay and is not survey-grade ground truth.
+            counterfactual replay and is not survey grade ground truth.
             Satellite measurements were algorithmically masked from the navigation estimator during the outage window.
           </small>
         </section>
       ) : replay.run.iovnbd ? (
         <section className="iov-benchmark" data-testid="iov-benchmark">
           <div className="iov-benchmark-head">
-            <h3>REAL-DATA BENCHMARK · IO-VNBD</h3>
+            <h3>REAL DATA BENCHMARK · IO-VNBD</h3>
             <small>
               Trip {replay.run.iovnbd.trip} · segment {replay.run.iovnbd.segmentId} ·{" "}
               {replay.run.iovnbd.blackoutDist.toFixed(0)} m travelled inside the outage
@@ -280,17 +280,17 @@ export function Evidence({ replay }: { replay: Replay }) {
               })}
               <tr data-testid="live-row">
                 <td>
-                  Live in-browser ES-EKF
+                  Live ES-EKF in the browser
                   <small>
                     {replay.run.iovnbd.live.gyroTrusted
                       ? " · gyro validated"
-                      : " · compass-aided"}
+                      : " · compass aided"}
                   </small>
                 </td>
                 <td>{replay.run.iovnbd.live.final.toFixed(1)} m</td>
                 <td>{replay.run.iovnbd.live.drift.toFixed(1)}%</td>
-                <td>—</td>
-                <td>—</td>
+                <td>n/a</td>
+                <td>n/a</td>
               </tr>
             </tbody>
           </table>
@@ -312,28 +312,28 @@ export function Evidence({ replay }: { replay: Replay }) {
               {replay.run.iovnbd.calib.initialSpeed.toFixed(1)} m/s
             </span>
           </div>
-          {/* buffy: statistical-depth row — paired block-bootstrap 95% CI on
+          {/* buffy: statistical depth row with paired block bootstrap 95% CI on
               the INS→ours error reduction over the outage window. Answers
-              "29% — significant or noise?" Deterministic (LCG-seeded). */}
+              "29%: significant or noise?" Deterministic (seeded LCG). */}
           <BootstrapCI snapshots={replay.run.snapshots} />
           <small className="iov-note">
-            Protocol: motion-mode model trained on the first 60% of this trip; blackout
+            Protocol: motion mode model trained on the first 60% of this trip; blackout
             taken from the unseen remainder. Reference: GNSS track. Estimator errors are
-            self-referenced at blackout start. No estimator dominates every segment —
-            selection under integrity rules is the research question.
+            self-referenced at blackout start. No estimator dominates every segment.
+            Selecting under integrity rules is the research question.
           </small>
         </section>
       ) : null}
       <div className="metric-grid">
         <Metric
           label={replay.run.source === "iovnbd" ? "Ours final error (live)" : "ES-EKF final error"}
-          value={primary ? `${primary.error.toFixed(1)} m` : "—"}
+          value={primary ? `${primary.error.toFixed(1)} m` : "n/a"}
           detail="Primary fused estimate"
         />
         <Metric
           label="INS final error"
-          value={ins ? `${ins.error.toFixed(1)} m` : "—"}
-          detail="IMU-only dead reckoning"
+          value={ins ? `${ins.error.toFixed(1)} m` : "n/a"}
+          detail="Dead reckoning on IMU alone"
         />
         <Metric
           label="Blackout distance"
@@ -342,7 +342,7 @@ export function Evidence({ replay }: { replay: Replay }) {
         />
         <Metric
           label="ES-EKF bound coverage"
-          value={primary ? `${primary.coverage.toFixed(1)}%` : "—"}
+          value={primary ? `${primary.coverage.toFixed(1)}%` : "n/a"}
           detail="Illustrative, not calibrated"
         />
       </div>
@@ -374,7 +374,7 @@ export function Evidence({ replay }: { replay: Replay }) {
           className="error-chart"
           viewBox="0 0 1000 265"
           role="img"
-          aria-label="INS, ES-EKF, map-assisted, classical, and simulated confidence errors over observed replay"
+          aria-label="INS, ES-EKF, map assisted, classical, and simulated confidence errors over observed replay"
         >
           <rect
             x={48 + (replay.run.scenario.start / 120) * 900}
@@ -485,12 +485,12 @@ export function Evidence({ replay }: { replay: Replay }) {
             <p>
               Dataset: Own-device phone sensor capture.
               Recorded {replay.run.byod?.capturedAt ? new Date(replay.run.byod.capturedAt).toLocaleString() : "today"}.
-              Navigating via live client-side 15-state ES-EKF with stationary bias self-calibration.
+              Navigating with the live ES-EKF in the browser (15 states) with stationary bias self-calibration.
               {replay.isCounterfactual
                 ? " Full GNSS denial simulated counterfactually: satellite aiding removed from estimator, recorded phone GPS track hidden as reference."
-                : " Continuous real-world drive replay on phone IMU + GPS."}
+                : " Continuous drive replay in the real world on phone IMU + GPS."}
             </p>
-            <span className="outline-tag">OWN-DRIVE EVIDENCE</span>
+            <span className="outline-tag">OWN DRIVE EVIDENCE</span>
           </section>
         ) : replay.run.iovnbd ? (
           <section>
@@ -500,12 +500,12 @@ export function Evidence({ replay }: { replay: Replay }) {
             <p>
               Dataset: IO-VNBD (public benchmark, smartphone GNSS/IMU @ 10 Hz).
               Trip {replay.run.iovnbd.trip}, segment {replay.run.iovnbd.segmentId}.
-              Model: motion-mode classifier {replay.run.iovnbd.modelInfo.version},
+              Model: motion mode classifier {replay.run.iovnbd.modelInfo.version},
               trained on the first 60% of the trip; blackout drawn from the unseen
-              remainder. Cross-mount transfer remains an open challenge — reported,
+              remainder. Cross mount transfer remains an open challenge. It is reported,
               not hidden.
             </p>
-            <span className="outline-tag">REAL-DATA EVIDENCE</span>
+            <span className="outline-tag">REAL DATA EVIDENCE</span>
           </section>
         ) : (
           <section>
@@ -513,7 +513,7 @@ export function Evidence({ replay }: { replay: Replay }) {
               Next: real-world validation <ArrowUpRight size={15} />
             </h3>
             <p>
-              IO-VNBD replay, a trip-disjoint test split, own-phone drives, and
+              IO-VNBD replay, a trip disjoint test split, drives from your own phone, and
               Android runtime measurements remain pending.
             </p>
             <span className="outline-tag">RESEARCH MILESTONE</span>
@@ -555,8 +555,8 @@ function BootstrapCI({ snapshots }: { snapshots: Replay["run"]["snapshots"] }) {
     return () => clearTimeout(id);
   }, [snapshots]);
   if (ci === undefined)
-    return <div className="iov-ci">REDUCTION CONFIDENCE — resampling…</div>;
-  if (ci === null) return null; // window too short — honest silence, not fake stats
+    return <div className="iov-ci">REDUCTION CONFIDENCE: resampling…</div>;
+  if (ci === null) return null; // window too short, so honest silence instead of fake stats
   const sig = ci.loPct > 0;
   return (
     <div className="iov-ci" data-testid="bootstrap-ci">
@@ -568,8 +568,8 @@ function BootstrapCI({ snapshots }: { snapshots: Replay["run"]["snapshots"] }) {
       </span>
       <small className={sig ? "ci-sig" : "ci-ns"}>
         {sig
-          ? `significant — interval excludes 0 · ${ci.nBlocks} circular blocks × ${ci.blockLen} epochs`
-          : `NOT significant — interval includes 0 (${ci.nBlocks} blocks)`}
+          ? `significant: interval excludes 0 · ${ci.nBlocks} circular blocks × ${ci.blockLen} epochs`
+          : `NOT significant: interval includes 0 (${ci.nBlocks} blocks)`}
       </small>
     </div>
   );

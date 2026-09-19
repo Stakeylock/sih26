@@ -4,7 +4,7 @@ import { timeLabel } from "../engine/geometry";
 export function Playback({ replay }: { replay: Replay }) {
   const { run, t, speed, playing } = replay;
   // N1 (Antigravity audit): fresh judges decide in ~7s but the transport looks
-  // static. Pulsing affordance ONLY before playback starts (t<=12, paused) —
+  // static. Pulsing affordance ONLY before playback starts (t<=12, paused).
   // it disappears the moment the demo runs, so it never competes with content.
   const coldStart = !playing && t <= 12;
   return (

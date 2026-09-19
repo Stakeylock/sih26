@@ -17,14 +17,14 @@ type TrustCard = {
 
 function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
   // REACQUISITION card is computed in TrustPanel (needs the whole run) and
-  // injected via prop — see <TrustPanel> below. Placeholder here to keep the
+  // injected via prop (see <TrustPanel> below). Placeholder here to keep the
   // card order stable; the real card replaces it by id at render time.
   const reacqCard: TrustCard = {
     id: "reacq",
     icon: <Activity size={14} />,
     label: "REACQUISITION",
     statusWord: "STANDBY",
-    value: "—",
+    value: "n/a",
     why: "Arms after the first outage in this run",
     state: "unavailable",
   };
@@ -75,7 +75,7 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
     statusWord: snapshot.shock ? "DISTURBED" : "PROPAGATING",
     value: `σ ${snapshot.sigma.toFixed(2)} m/s²`,
     why: snapshot.shock
-      ? "Shock event — IMU disturbed"
+      ? "Shock event, IMU disturbed"
       : `Heading ${Math.round(snapshot.heading)}° · propagating at 10 Hz`,
     state: snapshot.shock ? "degraded" : "ok",
   };
@@ -105,14 +105,14 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
     value:
       snapshot.mlQuality === "READY"
         ? `${(snapshot.mlSpeed * 3.6).toFixed(1)} km/h`
-        : "—",
+        : "n/a",
     why:
       snapshot.mlQuality === "READY"
         ? `${(snapshot.mlConfidence * 100).toFixed(0)}% confidence · ${snapshot.mlUsed ? "aiding EKF" : "not applied"}`
         : snapshot.mlQuality === "SUSPENDED"
-          ? "Fault recovery — aiding suspended"
+          ? "Fault recovery, aiding suspended"
           : snapshot.mlQuality === "OOD"
-            ? "Out-of-distribution motion detected"
+            ? "Out of distribution motion detected"
             : "Disabled in configuration",
     state: mlState,
   };
@@ -131,7 +131,7 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
     value: `${(snapshot.alignment * 100).toFixed(0)}%`,
     why:
       snapshot.alignment >= 0.9
-        ? "Map-heading agreement within gate"
+        ? "Map heading agreement within gate"
         : snapshot.alignment >= 0.5
           ? "Heading uncertainty elevated"
           : "Initial alignment in progress",
@@ -143,8 +143,8 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
           : "denied",
   };
 
-  // ROUTE LOCK — in replay mode this is the Viterbi route-topology matcher
-  // (honest label: emission-distance score against reference route; full OSM graph is future work)
+  // ROUTE LOCK. In replay mode this is the Viterbi route topology matcher
+  // (honest label: emission distance score against reference route; full OSM graph is future work)
   const mapCard: TrustCard = iovnbd
     ? snapshot.mapUsed
       ? {
@@ -160,8 +160,8 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
               : "VITERBI",
           why:
             (snapshot.mapLock ?? 0) > 0.6
-              ? "Emission-distance score on route topology (OSM graph is future work)"
-              : "Emission distance high — route lock degraded (OSM graph is future work)",
+              ? "Emission distance score on route topology (OSM graph is future work)"
+              : "Emission distance is high, so route lock is degraded (OSM graph is future work)",
           state: (snapshot.mapLock ?? 0) > 0.6 ? "ok" : "degraded",
         }
       : {
@@ -169,7 +169,7 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
           icon: <MapPinned size={14} />,
           label: "ROUTE LOCK",
           statusWord: "OFF",
-          value: "—",
+          value: "n/a",
           why: "Route matching disabled (ablation toggle)",
           state: "unavailable",
         }
@@ -180,9 +180,9 @@ function deriveCards(snapshot: Snapshot, iovnbd: Run["iovnbd"]): TrustCard[] {
         statusWord: snapshot.mapUsed ? "APPLIED" : "PAUSED",
         value: snapshot.candidates[0]
           ? `${(snapshot.candidates[0].probability * 100).toFixed(0)}%`
-          : "—",
+          : "n/a",
         why: snapshot.mapUsed
-          ? `Top candidate: ${snapshot.candidates[0]?.name ?? "—"}`
+          ? `Top candidate: ${snapshot.candidates[0]?.name ?? "n/a"}`
           : "Confidence gate closed",
         state: snapshot.mapUsed ? "ok" : "degraded",
       };
@@ -225,7 +225,7 @@ export function TrustPanel({
 }: {
   snapshot: Snapshot;
   iovnbd?: Run["iovnbd"];
-  /** Full run — enables the reacquisition card once an outage has completed. */
+  /** Full run, which enables the reacquisition card once an outage has completed. */
   run?: Run;
 }) {
   // Reacquisition stats only make sense with the full epoch history; compute
@@ -238,9 +238,9 @@ export function TrustPanel({
     c.id === "reacq" && reacq
       ? {
           ...c,
-          statusWord: reacq.timeToLock != null ? "RELOCKED" : "POST-FIX",
-          value: reacq.timeToLock != null ? `${reacq.timeToLock.toFixed(1)} s` : "—",
-          why: `Jump ${reacq.correctionJump?.toFixed(1) ?? "—"} m at relock · residual ${reacq.residualError?.toFixed(1) ?? "—"} m · pre-outage bound ${reacq.preBoundMedian?.toFixed(1) ?? "—"} m`,
+          statusWord: reacq.timeToLock != null ? "RELOCKED" : "FIX RETURNED",
+          value: reacq.timeToLock != null ? `${reacq.timeToLock.toFixed(1)} s` : "n/a",
+          why: `Jump ${reacq.correctionJump?.toFixed(1) ?? "n/a"} m at relock · residual ${reacq.residualError?.toFixed(1) ?? "n/a"} m · bound ${reacq.preBoundMedian?.toFixed(1) ?? "n/a"} m from before the outage`,
           state: reacq.timeToLock != null && reacq.timeToLock < 5 ? ("ok" as const) : ("degraded" as const),
         }
       : c,

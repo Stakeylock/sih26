@@ -172,19 +172,19 @@ export function ReplayLab({ replay }: { replay: Replay }) {
           <p>Changing aids resets the replay. Fault injections are cleared.</p>
         </div>
         <div className="config-aids lab-ablation">
-          <div className="section-label">ABLATION (judge break-it mode)</div>
+          <div className="section-label">ABLATION (judge break it mode)</div>
           <Toggle
             label="NHC (lateral/vertical velocity ≈ 0)"
             checked={replay.ablation.useNHC}
             onChange={() => replay.configureAblation({ useNHC: !replay.ablation.useNHC })}
           />
           <Toggle
-            label="ZUPT (zero-velocity when stopped)"
+            label="ZUPT (zero velocity when stopped)"
             checked={replay.ablation.useZUPT}
             onChange={() => replay.configureAblation({ useZUPT: !replay.ablation.useZUPT })}
           />
           <Toggle
-            label="ML speed pseudo-measurement"
+            label="ML speed pseudo measurement"
             checked={replay.ablation.useML}
             onChange={() => replay.configureAblation({ useML: !replay.ablation.useML })}
           />
@@ -195,11 +195,11 @@ export function ReplayLab({ replay }: { replay: Replay }) {
           />
           {replay.explainability?.liveErrorDelta != null && (
             <p className="lab-ablation-impact mono" data-testid="ablation-impact">
-              LIVE-ERROR Δ vs FULL SYSTEM: {replay.explainability.liveErrorDelta >= 0 ? "+" : ""}
+              LIVE ERROR Δ vs FULL SYSTEM: {replay.explainability.liveErrorDelta >= 0 ? "+" : ""}
               {replay.explainability.liveErrorDelta.toFixed(0)} m
             </p>
           )}
-          <p>Toggles rebuild the live filter instantly. Compare live-error delta vs full system.</p>
+          <p>Toggles rebuild the live filter instantly. Compare live error delta vs full system.</p>
         </div>
         <div className="config-aids lab-faultparams">
           <div className="section-label">FAULT LAB · REPRODUCIBLE PARAMS</div>

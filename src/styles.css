@@ -2481,7 +2481,7 @@ select {
   margin: 0;
 }
 
-/* === buffy: functional wiring — polished by Bob === */
+/* === buffy: functional wiring, polished by Bob === */
 
 /* Header: mode badge variants */
 .simulation-tag.iovnbd {
@@ -3632,7 +3632,7 @@ select {
 /* === buffy: pinned runs (saved library) =============================== */
 .run-lib-pinned { margin-bottom: 28px; }
 
-/* === buffy: audit #2 — pre-playback keyboard hint ===================== */
+/* === buffy: audit #2: pre-playback keyboard hint ===================== */
 .play-hint {
   position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%);
   z-index: 5; display: flex; align-items: center; gap: 9px;
@@ -3858,7 +3858,7 @@ select {
 }
 
 
-/* === buffy: scalebar — bottom-left of map, mirrors north-arrow chrome === */
+/* === buffy: scalebar at the bottom left of the map, mirrors the north arrow chrome === */
 .scalebar {
   position: absolute;
   left: 14px;

@@ -81,14 +81,14 @@ export default function App() {
           const cfMsg = rep.counterfactualEligible ? " · Counterfactual outage eligible" : " · v1 replay";
           setNotice(`Capture loaded (${rep.duration.toFixed(0)}s, ${rep.motionRateHz.toFixed(0)} Hz)${cfMsg}`);
         } else {
-          setNotice(res.ok ? "Capture loaded — navigating your drive." : res.error ?? "Load failed.");
+          setNotice(res.ok ? "Capture loaded. Now navigating your drive." : res.error ?? "Load failed.");
         }
         if (res.ok) {
           setModal(null);
           setView("navigate");
         }
       } catch {
-        setNotice("Not valid JSON — is that a capture file?");
+        setNotice("That file is not valid JSON. Is it a capture file?");
       }
     });
   };
@@ -106,19 +106,19 @@ export default function App() {
     const id = setTimeout(() => setNotice(""), 3200);
     return () => clearTimeout(id);
   }, [notice]);
-  // buffy: live tab title — during outage the tab itself reads GNSS DENIED.
-  // Small tell, but it makes screen-share recordings look like a real product.
+  // buffy: live tab title. During an outage the tab itself reads GNSS DENIED.
+  // Small tell, but it makes screen share recordings look like a real product.
   useEffect(() => {
     const s = replay.snapshot;
     const st = s?.state;
     document.title =
       st === "DENIED"
-        ? "⚠ GNSS DENIED — AstraNav-IDR"
+        ? "⚠ AstraNav-IDR: GNSS denied"
         : st === "DEGRADED"
-          ? "GNSS DEGRADED — AstraNav-IDR"
-          : "AstraNav-IDR — Team Recalibrate";
+          ? "AstraNav-IDR: GNSS degraded"
+          : "AstraNav-IDR by Team Recalibrate";
     return () => {
-      document.title = "AstraNav-IDR — Team Recalibrate";
+      document.title = "AstraNav-IDR by Team Recalibrate";
     };
   }, [replay.snapshot?.state]);
   const configure = (patch: Parameters<typeof replay.configure>[0]) => {
@@ -184,7 +184,7 @@ export default function App() {
             <i /> <small>TEAM RECALIBRATE</small>
           </div>
           <div className="header-right">
-            {/* buffy: ⌘K launcher — affordance in the header opens it too */}
+            {/* buffy: ⌘K launcher. A matching affordance lives in the header too. */}
             <button
               className="cmdk-trigger"
               onClick={() => setPalette(true)}
@@ -204,7 +204,7 @@ export default function App() {
                 <i />
                 {replay.isCounterfactual
                   ? "MODE: OWN DRIVE · SYNTHETIC OUTAGE (CF)"
-                  : "MODE: OWN DRIVE · GPS-REFERENCED · LIVE FILTER"}
+                  : "MODE: OWN DRIVE · GPS REFERENCED · LIVE FILTER"}
               </span>
             ) : (
               <span className="simulation-tag">
@@ -247,12 +247,12 @@ export default function App() {
               </h1>
               <p>
                 {view === "navigate" && replay.t > 0
-                  ? // N3 (Antigravity audit): live one-liner replaces the static
-                    // tagline while a run is underway — bound, GNSS state, and
+                  ? // N3 (Antigravity audit): live one liner replaces the static
+                    // tagline while a run is underway, showing bound, GNSS state, and
                     // time to outage/reacquisition, all from real snapshot data.
                     `±${replay.snapshot.bound.toFixed(0)} m bound · ${
                       replay.snapshot.state === "DENIED"
-                        ? "GNSS DENIED — dead reckoning"
+                        ? "GNSS denied, on dead reckoning"
                         : replay.snapshot.state === "DEGRADED"
                           ? "GNSS degraded"
                           : "TRUSTED GNSS"
@@ -261,7 +261,7 @@ export default function App() {
                         ? `outage in ${Math.max(0, Math.round(replay.run.scenario.start - replay.t))} s`
                         : replay.t < replay.run.scenario.start + replay.run.config.blackout
                           ? `reacquisition in ${Math.max(0, Math.round(replay.run.scenario.start + replay.run.config.blackout - replay.t))} s`
-                          : "GNSS re-acquired"
+                          : "GNSS locked again"
                     }`
                   : view === "navigate"
                     ? "Follow the journey. Understand the confidence."
@@ -270,7 +270,7 @@ export default function App() {
                       : view === "evidence"
                         ? "A transparent view of what this simulation actually measures."
                         : view === "calibration"
-                          ? "Phone-to-vehicle frame alignment and sensor bias."
+                          ? "Phone to vehicle frame alignment and sensor bias."
                           : view === "experiments"
                             ? "Compare all 5 IO-VNBD segments. No estimator wins every time."
                             : "Explore the pipeline from sensor observations to navigation."}
@@ -345,7 +345,7 @@ export default function App() {
                   onExplain={() => setModal("help")}
                 />
                 <FallbackCard snapshot={replay.snapshot} />
-                {/* buffy: Basic mode keeps the money chart visible — the INS-vs-OURS
+                {/* buffy: Basic mode keeps the money chart visible so the INS vs OURS
                     proof must never be a casualty of the Basic/Expert toggle. */}
                 {basic && <ChartsPanel replay={replay} errorOnly />}
                 {!basic && (
@@ -446,7 +446,7 @@ export default function App() {
                 <strong>IO-VNBD REPLAY</strong>
                 <small>Real benchmark data · UK drives · 10 Hz</small>
               </button>
-              {/* buffy: BYOD — Bring Your Own Drive. Loads a capture made on
+              {/* buffy: BYOD (Bring Your Own Drive). Loads a capture made on
                   the judge's/team's own phone (public/byod.html) and runs the
                   SAME live filter on it. Breadth answer to "where's the app?" */}
               <button
@@ -532,19 +532,19 @@ export default function App() {
             AstraNav-IDR explores how a phone can continue estimating vehicle
             motion when GNSS becomes unreliable.
           </p>
-          {/* buffy: Jini reported "no changes visible" — root cause was the persisted
+          {/* buffy: Jini reported "no changes visible". Root cause was the persisted
               Basic/Expert toggle. Teach the escape hatch wherever we teach the app. */}
           <p className="modal-intro" style={{ color: "var(--cyan, #6fd3e8)" }}>
-            Tip: use the <strong>Expert</strong> toggle (top-right) for telemetry
+            Tip: use the <strong>Expert</strong> toggle (top right) for telemetry
             strips, trust diagnostics and the full evidence stack.
           </p>
           <div className="help-copy">
             <h3>Read the map</h3>
             <p>
-              Amber is IMU-only INS. Cyan is the primary reduced-order ES-EKF
-              with ML virtual-odometer aiding. Lime is the confidence-gated
-              map-assisted output. Coral is the classical EKF comparator. GNSS
-              dots show accepted and rejected fixes; no dots means an outage.
+              Amber is INS running on IMU alone. Cyan is the primary reduced
+              order ES-EKF with ML virtual odometer aiding. Lime is the map
+              assisted output, shown only when the confidence gate passes. Coral is the classical EKF comparator. GNSS
+              dots show accepted and rejected fixes. No dots means an outage.
             </p>
             <h3>Inspect trust</h3>
             <p>
@@ -563,19 +563,19 @@ export default function App() {
               Test the console on your own physical drive captured from an ordinary smartphone:
             </p>
             <ol style={{ paddingLeft: "18px", margin: "6px 0 10px", lineHeight: "1.6" }}>
-              <li><strong>Step 1 — Connect:</strong> Ensure your phone and laptop are on the same local Wi-Fi.</li>
-              <li><strong>Step 2 — Open Capture:</strong> In your mobile browser, navigate to <code>/byod.html</code> (e.g. <code>http://&lt;laptop-ip&gt;:4175/byod.html</code>).</li>
-              <li><strong>Step 3 — Record:</strong> Firmly mount or hold the phone steady, tap <strong>START CAPTURE</strong>, then drive or walk normally (recommended 2–5 min; include turns and one stop).</li>
-              <li><strong>Step 4 — Import:</strong> Tap <strong>DOWNLOAD CAPTURE</strong>, then in AstraNav click <em>Configure → YOUR DRIVE (BYOD) → Load</em>.</li>
+              <li><strong>Step 1: Connect</strong> Ensure your phone and laptop are on the same local WiFi.</li>
+              <li><strong>Step 2: Open Capture</strong> In your mobile browser, navigate to <code>/byod.html</code> (e.g. <code>http://&lt;laptop ip&gt;:4175/byod.html</code>).</li>
+              <li><strong>Step 3: Record</strong> Firmly mount or hold the phone steady, tap <strong>START CAPTURE</strong>, then drive or walk normally (recommended 2 to 5 min; include turns and one stop).</li>
+              <li><strong>Step 4: Import</strong> Tap <strong>DOWNLOAD CAPTURE</strong>, then in AstraNav click <em>Configure → YOUR DRIVE (BYOD) → Load</em>.</li>
             </ol>
             <p style={{ fontSize: "12px", color: "#e8b664", background: "#261d12", padding: "8px 12px", borderRadius: "4px" }}>
-              <strong>Important:</strong> BYOD uses the phone's own GPS track as a reference standard. It is not survey-grade ground truth. Mobile Chrome/Safari may require HTTPS for motion sensors.
+              <strong>Important:</strong> BYOD uses the phone's own GPS track as a reference standard. It is not survey grade ground truth. Mobile Chrome/Safari may require HTTPS for motion sensors.
             </p>
             <h3>Prototype boundary</h3>
             <p>
-              The live 15-state ES-EKF, learned motion-mode classifier, and Viterbi
-              map matching run entirely client-side in-browser. Android background services
-              and external CAN-bus/IMU integrations are roadmap targets — every replay
+              The live ES-EKF with 15 states, the learned motion mode classifier, and Viterbi
+              map matching all run inside the browser. Android background services
+              and external CAN bus and IMU integrations are roadmap targets. Every replay
               uses recorded sensor data, labeled transparently.
             </p>
           </div>

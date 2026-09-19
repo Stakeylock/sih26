@@ -23,7 +23,7 @@ function LiveRow({ label, value, tone }: { label: string; value: string; tone?: 
   );
 }
 
-/** Connection line between pipeline blocks — shows active/degraded/inactive */
+/** Connection line between pipeline blocks. Shows active, degraded or inactive. */
 function ConnLine({ state }: { state: "active" | "degraded" | "inactive" }) {
   return (
     <div className={`sv-conn sv-conn--${state}`} aria-hidden>
@@ -57,7 +57,7 @@ const stages: Stage[] = [
     contract: "IMU packet → Δposition · speed · yaw · covariance",
     file: "engine/simulation.ts · propagate(ins)",
     production:
-      "Replace the planar propagation with a frame-validated strapdown INS and Android sensor timestamps.",
+      "Replace the planar propagation with a strapdown INS validated for its frame, plus Android sensor timestamps.",
     connState: () => "active",
     liveValues: (s) => [
       { label: "Update rate", value: "10 Hz", tone: "ok" },
@@ -72,7 +72,7 @@ const stages: Stage[] = [
     icon: Satellite,
     tone: "gnss",
     description:
-      "GNSS fixes are displayed as individual observations. The outage band removes fixes, degraded fixes are down-weighted, and large innovations are rejected before fusion.",
+      "GNSS fixes are displayed as individual observations. The outage band removes fixes, degraded fixes carry less weight, and large innovations are rejected before fusion.",
     contract: "GNSS packet → fix · quality · residual · accepted/rejected",
     file: "engine/simulation.ts · GNSS gate",
     production:
@@ -92,9 +92,9 @@ const stages: Stage[] = [
       { label: "Fix", value: s.gnss ? (s.gnssAccepted ? "Accepted" : "Rejected") : "No fix" },
       {
         label: "Innovation",
-        value: s.gnssResidual != null ? `${s.gnssResidual.toFixed(1)} m` : "—",
+        value: s.gnssResidual != null ? `${s.gnssResidual.toFixed(1)} m` : "n/a",
       },
-      { label: "Outage", value: s.outage > 0 ? timeLabel(s.outage) : "—" },
+      { label: "Outage", value: s.outage > 0 ? timeLabel(s.outage) : "n/a" },
     ],
   },
   {
@@ -103,11 +103,11 @@ const stages: Stage[] = [
     icon: BrainCircuit,
     tone: "ml",
     description:
-      "The model branch emits a virtual speed observation and confidence. A mount shift, pothole, or out-of-distribution speed makes the measurement suspend, allowing the filter to fall back to INS.",
+      "The model branch emits a virtual speed observation and confidence. A mount shift, pothole, or out of distribution speed makes the measurement suspend, allowing the filter to fall back to INS.",
     contract: "IMU window → virtual speed · confidence · OOD score",
     file: "engine/simulation.ts · ML observation",
     production:
-      "Train on trip-disjoint data, calibrate uncertainty, and validate the model on held-out phones and roads.",
+      "Train on trip disjoint data, calibrate uncertainty, and validate the model on held out phones and roads.",
     connState: (s) =>
       s.mlQuality === "READY"
         ? "active"
@@ -127,15 +127,15 @@ const stages: Stage[] = [
   },
   {
     title: "ES-EKF fusion",
-    subtitle: "15-state error-state filter (live in-browser)",
+    subtitle: "Error state filter with 15 states (live in the browser)",
     icon: ShieldCheck,
     tone: "ekf",
     description:
-      "A real 15-state error-state EKF (position, velocity, attitude, accel and gyro biases) runs live in the browser on recorded IMU channels: quaternion mechanisation, NIS-gated GNSS updates, NHC, duration-gated ZUPT/ZARU and ML-speed aiding. In synthetic mode the reduced-order demonstration filter is shown instead.",
-    contract: "IMU + GNSS + ML + constraints → 15-state estimate · covariance",
+      "A real error state EKF with 15 states (position, velocity, attitude, accel and gyro biases) runs live in the browser on recorded IMU channels: quaternion mechanisation, NIS gated GNSS updates, NHC, ZUPT and ZARU gated on stop duration, and ML speed aiding. In synthetic mode the reduced order demonstration filter is shown instead.",
+    contract: "IMU + GNSS + ML + constraints → 15 state estimate · covariance",
     file: "engine/esekf.ts · engine/liveeskf.ts",
     production:
-      "The same 15-state model is the production core; on-device it would consume raw phone IMU at full rate with ONNX-model speed aiding.",
+      "The same 15 state model is the production core. On device it would consume raw phone IMU at full rate with speed aiding from an ONNX model.",
     connState: (s) =>
       s.state === "TRUSTED" ? "active" : s.state === "DENIED" ? "degraded" : "degraded",
     liveValues: (s) => [
@@ -153,13 +153,13 @@ const stages: Stage[] = [
     ],
   },
   {
-    title: "Map-assisted output",
+    title: "Map assisted output",
     subtitle: "Viterbi HMM route/road matching",
     icon: MapPinned,
     tone: "map",
     description:
-      "A Viterbi HMM matcher (tested: emission likelihood × heading-consistent transitions, max-path over the trajectory) constrains the estimate to the route topology in replay mode; the synthetic engine uses the original road-graph gate. Feedback never overwrites the INS and ES-EKF traces.",
-    contract: "ES-EKF pose + route topology → Viterbi path · map-constrained output",
+      "A Viterbi HMM matcher (tested: emission likelihood × transitions consistent in heading, max path over the trajectory) constrains the estimate to the route topology in replay mode; the synthetic engine uses the original road graph gate. Feedback never overwrites the INS and ES-EKF traces.",
+    contract: "ES-EKF pose + route topology → Viterbi path · output constrained to the map",
     file: "engine/mapmatch.ts · engine/iovnbd.ts",
     production:
       "Use a connected OSM graph with temporal matching, topology constraints, and a safe fallback when roads are ambiguous.",
@@ -173,8 +173,8 @@ const stages: Stage[] = [
       {
         label: "Top candidate",
         value: s.candidates[0]
-          ? `${(s.candidates[0].probability * 100).toFixed(0)}% — ${s.candidates[0].name}`
-          : "—",
+          ? `${s.candidates[0].name} (${(s.candidates[0].probability * 100).toFixed(0)}%)`
+          : "n/a",
       },
       { label: "Alignment", value: `${(s.alignment * 100).toFixed(0)}%` },
     ],
@@ -189,7 +189,7 @@ const stages: Stage[] = [
     contract: "Run → snapshots · events · layers · metrics · provenance",
     file: "hooks/useReplay.ts · components/Evidence.tsx",
     production:
-      "Keep this contract when a native recorder or real-time Android engine replaces the synthetic source.",
+      "Keep this contract when a native recorder or realtime Android engine replaces the synthetic source.",
     connState: () => "active",
     liveValues: (s) => [
       { label: "Time", value: timeLabel(s.t) },

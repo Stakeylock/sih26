@@ -5,15 +5,15 @@ import type { Point } from "../engine/types";
 
 /**
  * Time-synced chart drawer (plan §11/§37): small-multiple strip charts sharing
- * one cursor; dragging on any strip seeks the replay (Grafana-style crosshair,
- * adapted to our design tokens — pure SVG, no chart lib, fully offline).
+ * one cursor; dragging on any strip seeks the replay (crosshair in the Grafana spirit,
+ * adapted to our design tokens; pure SVG, no chart lib, fully offline).
  *
  * Every series is a REAL signal, not decoration:
- *  - SPEED    : primary fused speed
- *  - GNSS NIS : live ES-EKF normalized innovation square (iovnbd runs; null
+ *  · SPEED    : primary fused speed
+ *  · GNSS NIS : live ES-EKF normalized innovation square (iovnbd runs; null
  *               before the first fix), with the 9.21 gate line
- *  - BOUND    : live filter 95% covariance + protection level
- *  - ML CONF  : learned motion-mode confidence (drives the OOD gate)
+ *  · BOUND    : live filter 95% covariance + protection level
+ *  · ML CONF  : learned motion mode confidence (drives the OOD gate)
  *
  * The blackout region is shaded on every strip so outages read instantly.
  */
@@ -38,7 +38,7 @@ export function ChartsPanel({
   errorOnly = false,
 }: {
   replay: Replay;
-  /** Basic mode renders only the position-error strip — the proof must never
+  /** Basic mode renders only the position error strip, so the proof can never
    * be hidden by the Basic/Expert toggle (demo-safety: a judge or teammate in
    * Basic mode still sees INS vs OURS divergence). */
   errorOnly?: boolean;
@@ -127,7 +127,7 @@ export function ChartsPanel({
       },
     ];
     // The headline strip: distance-from-reference per estimator branch over
-    // time. This is the money chart — INS diverges, ours stays bounded.
+    // time. This is the money chart: INS diverges while ours stays bounded.
     const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
     const errSeries: Series = {
       key: "err",
@@ -150,7 +150,7 @@ export function ChartsPanel({
         : {}),
       fmt: (v) => `${v.toFixed(0)} m`,
     };
-    // buffy: diagnostic strips (plan §37) — only rendered when the live
+    // buffy: diagnostic strips (plan §37), only rendered when the live
     // filter provides the channels (iovnbd runs). Real signals, not chrome:
     // gyro-bias z (the ZARU-observable state), ML speed innovation, and
     // per-step filter compute time.
@@ -159,7 +159,7 @@ export function ChartsPanel({
       ? [
           {
             key: "bgz",
-            label: "GYRO BIAS Z (ZARU-OBSERVED)",
+            label: "GYRO BIAS Z (ZARU OBSERVED)",
             color: "var(--cyan)",
             data: sub.map((s) => (s.bias ? s.bias.bg[2] : null)),
             alt: {
@@ -211,7 +211,7 @@ export function ChartsPanel({
   };
 
   return (
-    <section className="charts-panel" aria-label="Time-synchronized navigation charts">
+    <section className="charts-panel" aria-label="Navigation charts in sync">
       <div className="charts-head">
         <span className="charts-title">
           <Activity size={15} /> TELEMETRY STRIPS
@@ -240,7 +240,7 @@ export function ChartsPanel({
                   </span>
                   <span className="chart-val mono">
                     {cur == null
-                      ? "—"
+                      ? "n/a"
                       : s.alt && s.alt.data[Math.max(0, Math.min(n - 1, cursorI))] != null
                         ? `INS ${s.fmt(cur)} · OURS ${s.fmt(s.alt.data[Math.max(0, Math.min(n - 1, cursorI))]!)}`
                         : s.fmt(cur)}
@@ -287,7 +287,7 @@ export function ChartsPanel({
                       vectorEffect="non-scaling-stroke"
                     />
                   )}
-                  {/* buffy: on the error strip, shade INS−OURS — the gap IS
+                  {/* buffy: on the error strip, shade the INS to OURS gap. The gap IS
                       the improvement; it balloons during the outage. */}
                   {s.key === "err" && s.alt && (
                     <path

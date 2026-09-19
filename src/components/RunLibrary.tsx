@@ -33,8 +33,8 @@ export function RunLibrary({ replay }: { replay: Replay }) {
     // As seen in ExperimentsView, `run.iovnbd` only has the current segment's finalErrors.
     // However, ExperimentsView rebuilds rows with `run.iovnbd?.segmentId === rawId` to get metrics.
     // If we want ALL metrics, wait, `ExperimentsView` only shows metrics for the LOADED segment!
-    // "Metrics only appear for the currently loaded segment — switch segments to populate others."
-    // "and for iovnbd rows the benchmark final-error of "Ours" + winner glyph" - if it is available!
+    // "Metrics only appear for the currently loaded segment. Switch segments to populate others."
+    // "and for iovnbd rows the benchmark final error of "Ours" + winner glyph", if it is available!
     
     let ours = null;
     let winner = null;
@@ -112,14 +112,14 @@ export function RunLibrary({ replay }: { replay: Replay }) {
 
   return (
     <>
-    {/* buffy: pinned runs (saved from Evidence) — local, offline, §19 */}
+    {/* buffy: pinned runs (saved from Evidence). Local, offline, §19 */}
     {saved.length > 0 && (
       <div className="run-lib-pinned">
         <div className="section-header">
           <div>
             <span className="section-label">PINNED RUNS</span>
             <h2>Saved from Evidence this session.</h2>
-            <p>Stored locally in your browser — no server, fully offline.</p>
+            <p>Stored locally in your browser. No server, fully offline.</p>
           </div>
         </div>
         <div className="exp-table-wrap">
@@ -153,7 +153,7 @@ export function RunLibrary({ replay }: { replay: Replay }) {
                   <td className="exp-trip">{s.trip}</td>
                   <td className="exp-mono">{s.blackout} s</td>
                   <td className="exp-mono">
-                    {s.live ? s.live.final.toFixed(1) : "—"}
+                    {s.live ? s.live.final.toFixed(1) : "n/a"}
                   </td>
                   <td>
                     <button
@@ -179,7 +179,7 @@ export function RunLibrary({ replay }: { replay: Replay }) {
         <div>
           <span className="section-label">RUN LIBRARY</span>
           <h2>Select a scenario or benchmark.</h2>
-          <p>Filter and load synthetic edge-cases or real IO-VNBD datasets.</p>
+          <p>Filter and load synthetic edge cases or real IO-VNBD datasets.</p>
         </div>
       </div>
 
@@ -253,7 +253,7 @@ export function RunLibrary({ replay }: { replay: Replay }) {
                         {r.ours.toFixed(1)} m {r.winner === "ekf" ? "◆" : ""}
                       </span>
                     ) : (
-                      <span className="exp-na">—</span>
+                      <span className="exp-na">n/a</span>
                     )}
                   </td>
                   <td>

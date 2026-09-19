@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { BrainCircuit, AlertCircle } from "lucide-react";
 
 /**
- * Model Inspector (plan §32) — provenance for the trained motion-mode
+ * Model Inspector (plan §32) with provenance for the trained motion mode
  * classifier, straight from the training bundle (iovnbd-model.json).
  * Everything shown is a REAL training artifact: protocol, class/speed
- * structure, holdout accuracy vs the majority baseline, LOTO cross-mount
+ * structure, holdout accuracy vs the majority baseline, LOTO cross mount
  * transfer, and the learned weight matrix as a heatmap. No simulated
- * numbers — where the model is weak (cross-mount S3a), it says so.
+ * numbers. Where the model is weak (cross mount S3a), it says so.
  */
 type ModelJson = {
   kind: string;
@@ -63,7 +63,7 @@ export function ModelInspector() {
           <span className="section-label">MODEL INSPECTOR</span>
           <h2>The learned component, opened up.</h2>
           <p>
-            Training artifacts from the virtual-odometer classifier — nothing
+            Training artifacts from the virtual odometer classifier. Nothing
             here is simulated.
           </p>
         </div>
@@ -99,7 +99,7 @@ export function ModelInspector() {
 
         {/* --- holdout vs baseline --- */}
         <div className="mi-card">
-          <h3>Temporal holdout — accuracy vs majority baseline</h3>
+          <h3>Temporal holdout: accuracy vs majority baseline</h3>
           {trips.map((t) => {
             const e = m.evalHoldout[t];
             const lift = e.acc - e.majority;
@@ -132,14 +132,14 @@ export function ModelInspector() {
               .join("/")}{" "}
             m/s, N ={" "}
             {trips.reduce((a, t) => a + m.evalHoldout[t].n, 0).toLocaleString()}{" "}
-            windows. Held-out temporal split — no leakage from blackout
+            windows. Held out temporal split with no leakage from blackout
             segments.
           </p>
         </div>
 
         {/* --- LOTO transfer --- */}
         <div className="mi-card">
-          <h3>Cross-mount transfer (leave-one-trip-out)</h3>
+          <h3>Cross mount transfer (leave one trip out)</h3>
           <div className="mi-loto">
             {Object.keys(m.evalLoto).map((t) => (
               <div key={t} className="mi-loto-cell">
@@ -158,7 +158,7 @@ export function ModelInspector() {
 
       {/* --- learned weights heatmap --- */}
       <div className="mi-card mi-heat-card">
-        <h3>Learned weights — {nF} features × {nC} classes</h3>
+        <h3>Learned weights: {nF} features × {nC} classes</h3>
         <svg
           className="mi-heat"
           viewBox={`0 0 ${nC * 44 + 8} ${Math.min(nF, 28) * 7 + 22}`}

@@ -3,7 +3,7 @@ import type { Replay } from "../hooks/useReplay";
 import type { Contribution } from "../engine/explain";
 
 /**
- * Explainability Panel (plan §39) — "WHY IS THE VEHICLE HERE?"
+ * Explainability Panel (plan §39) answers "WHY IS THE VEHICLE HERE?"
  *
  * Renders the per-epoch contribution breakdown computed by
  * src/engine/explain.ts from the LIVE filter / simulation state. Every row is
@@ -20,12 +20,12 @@ export function ExplainabilityPanel({ replay }: { replay: Replay }) {
       <div className="explain-head">
         <span className="explain-title">
           <HelpCircle size={15} /> WHY IS THE VEHICLE HERE?
-          <small>per-epoch contributions · live state</small>
+          <small>contributions per epoch · live state</small>
         </span>
         {ex.liveErrorDelta != null && (
           <span
             className="explain-delta mono"
-            title="Live in-browser ES-EKF final blackout error minus the offline benchmark's"
+            title="Final blackout error of the live ES-EKF in the browser, minus the offline benchmark"
           >
             live vs offline: {ex.liveErrorDelta >= 0 ? "+" : ""}
             {ex.liveErrorDelta.toFixed(0)} m

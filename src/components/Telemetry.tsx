@@ -42,7 +42,7 @@ export function Telemetry({
       : s.mlQuality === "DISABLED"
         ? "Disabled"
         : s.mlQuality === "OOD"
-          ? "Out-of-distribution"
+          ? "Out of distribution"
           : "Temporarily suspended";
   const modelSamples = replay.run.snapshots
       .filter((snapshot) => snapshot.t <= replay.t)
@@ -200,7 +200,7 @@ export function Telemetry({
             <PipelineRow
               number="04"
               tone="map"
-              label="Map-assisted output"
+              label="Map assisted output"
               detail={`${(s.candidates[0].probability * 100).toFixed(0)}% top road candidate`}
               state={s.mapUsed ? "Applied" : "Paused"}
             />
@@ -229,7 +229,7 @@ export function Telemetry({
         <span>
           {replay.run.source === "iovnbd"
             ? "Real IO-VNBD benchmark replay: estimator outputs computed from recorded sensors; reference is the GNSS track."
-            : "All values are simulated. Real-world validation is pending."}
+            : "All values are simulated. Real world validation is pending."}
         </span>
       </div>
     </aside>

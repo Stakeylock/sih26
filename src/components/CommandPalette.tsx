@@ -6,12 +6,12 @@ import {
 import type { Replay } from "../hooks/useReplay";
 
 /**
- * Command palette (⌘K / Ctrl+K) — Linear/Vercel-style quick navigation and
- * actions, hand-rolled on native primitives (dialog-free, zero deps, fully
+ * Command palette (⌘K / Ctrl+K) with quick navigation and actions in the
+ * Linear and Vercel spirit, hand rolled on native primitives (no dialog, zero deps, fully
  * keyboard driven). Typical of polished engineering consoles; supports the
  * demo (judges can jump anywhere instantly) and power users.
  *
- * Actions: jump to any of the 10 views · play/pause · restart · 2-min demo ·
+ * Actions: jump to any of the 10 views · play/pause · restart · 2 min demo ·
  * load a BYOD capture (hidden file input) ·
  * switch to IO-VNBD segments.
  */
@@ -96,7 +96,7 @@ const ITEMS: Item[] = [
       setView("navigate");
     },
   },
-  // buffy: BYOD from the palette — same hidden input the modal uses; the
+  // buffy: BYOD from the palette uses the same hidden input as the modal; the
   // element lives in App (id=byod-input) so both entry points share one file
   // picker and one onChange handler.
   {
